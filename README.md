@@ -36,13 +36,15 @@ The curriculum is organized into 12 sequential stages:
 ### Available
 
 - **Linux** — 20 chapters and 100 reserved lesson pages
-- **Git** — 16 chapters and 80 reserved lesson pages
 
-`courses/linux/Chapter01/Lesson1.html` is the first fully implemented lesson and establishes the shared lesson structure and presentation standard for future DevOps Academy content. The remaining lesson paths are reserved so the course structure and permanent URLs remain stable while the content is expanded.
+`courses/linux/Chapter01/Lesson1.html` is the first fully implemented lesson and establishes the shared lesson structure and presentation standard for future DevOps Academy content. The remaining Linux lesson paths are reserved so the course structure and permanent URLs remain stable while the content is expanded.
 
 ### Planned
 
-The other 35 courses are displayed in their correct learning stages and marked as planned. They will be activated as their curricula and lesson content are completed.
+- **Git** — 16 chapters and 80 reserved lesson pages
+- The other 35 courses shown in the learning roadmap
+
+Planned courses remain visible in their correct learning stages and will be activated when their curricula and lesson content are completed.
 
 ## Platform Features
 
@@ -50,8 +52,8 @@ The other 35 courses are displayed in their correct learning stages and marked a
 - Light and dark themes with persistent user preference
 - Searchable and filterable 37-course catalogue
 - Sequential learning path with clear course categories and prerequisites
-- Dedicated Linux and Git curriculum pages
-- Responsive lesson sidebar and generated table of contents
+- Dedicated Linux curriculum pages and reserved Git curriculum structure
+- Responsive lesson sidebar that automatically positions the active chapter at the top
 - Syntax highlighting and copy controls for command and code examples
 - MathJax support for mathematical notation
 - Theme-aware Mermaid diagrams

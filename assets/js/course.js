@@ -27,9 +27,30 @@
 
   const sidebar = document.querySelector('[data-course-sidebar]');
   const shell = document.querySelector('.lesson-shell');
+  const sidebarCurriculum = document.querySelector('.sidebar-curriculum');
+  const currentSidebarLesson = document.querySelector('.sidebar-lesson.is-current');
+  const currentSidebarChapter = currentSidebarLesson?.closest('.sidebar-chapter');
+
+  const alignCurrentSidebarChapter = ({ smooth = false } = {}) => {
+    if (!sidebarCurriculum || !currentSidebarChapter) return;
+    currentSidebarChapter.open = true;
+    currentSidebarLesson?.setAttribute('aria-current', 'page');
+
+    requestAnimationFrame(() => {
+      const curriculumRect = sidebarCurriculum.getBoundingClientRect();
+      const chapterRect = currentSidebarChapter.getBoundingClientRect();
+      const target = sidebarCurriculum.scrollTop + chapterRect.top - curriculumRect.top;
+      sidebarCurriculum.scrollTo({
+        top: Math.max(0, target),
+        behavior: smooth ? 'smooth' : 'auto'
+      });
+    });
+  };
+
   const openSidebar = () => {
     sidebar?.classList.add('is-open');
     shell?.classList.add('sidebar-open');
+    alignCurrentSidebarChapter();
   };
   const closeSidebar = () => {
     sidebar?.classList.remove('is-open');
@@ -56,7 +77,13 @@
       chapter.hidden = Boolean(q && matches === 0);
       if (q && matches) chapter.open = true;
     });
+
+    if (!q) alignCurrentSidebarChapter();
   });
+
+  alignCurrentSidebarChapter();
+  window.addEventListener('load', () => alignCurrentSidebarChapter());
+  window.addEventListener('resize', () => alignCurrentSidebarChapter());
 
   const article = document.querySelector('.lesson-article');
   const progress = document.querySelector('[data-reading-progress]');
