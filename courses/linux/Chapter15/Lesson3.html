@@ -1,1 +1,249 @@
-<!-- Reserved DevOps Academy lesson: Linux / Chapter 15 / Lesson 3: Logging, Retries, Timeouts, and Idempotency -->
+<!DOCTYPE html>
+
+<html data-theme="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="Implement structured Bash logging, bounded timeouts, exponential retry with jitter, and verified idempotent reconciliation." name="description"/>
+<meta content="Abolfazl Mohammadijoo" name="author"/>
+<meta content="dark light" name="color-scheme"/>
+<meta content="#07090d" name="theme-color"/>
+<title>Logging, Retries, Timeouts, and Idempotency | DevOps Academy</title>
+<link href="../../../assets/icons/favicon.svg" rel="icon" type="image/svg+xml"/>
+<link href="../../../assets/css/styles.css" rel="stylesheet"/>
+<script>try{const t=localStorage.getItem('devops-academy-theme');if(t)document.documentElement.dataset.theme=t;else if(matchMedia('(prefers-color-scheme: light)').matches)document.documentElement.dataset.theme='light';}catch(e){}</script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css" id="hljs-theme-dark" rel="stylesheet"/>
+<link disabled="" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css" id="hljs-theme-light" rel="stylesheet"/>
+<script>window.MathJax={tex:{inlineMath:[['\\(','\\)']],displayMath:[['\\[','\\]']]},svg:{fontCache:'global'}};</script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<script defer="" src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script defer="" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+</head>
+<body class="lesson-page">
+<div class="reading-progress" data-reading-progress=""></div>
+<div aria-hidden="true" class="site-grid"></div>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header" data-header="">
+<div class="header-inner">
+<a aria-label="DevOps Academy home" class="brand" href="../../../index.html">
+<span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span>
+<span class="brand-copy"><strong>DevOps Academy</strong><small>Learn the delivery system</small></span>
+</a>
+<nav aria-label="Primary navigation" class="desktop-nav"><a href="../../../index.html#roadmap">Roadmap</a><a class="is-active" href="../../../index.html#courses">Courses</a><a href="../../../index.html#method">Method</a><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a></nav>
+<div class="header-actions">
+<a aria-label="Open GitHub repository" class="icon-button desktop-only" href="https://github.com/mohammadijoo/DevOps_Academy" rel="noopener" target="_blank"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"></path></svg></a>
+<button aria-label="Toggle color theme" class="icon-button" data-theme-toggle="" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg></button>
+<button aria-expanded="false" aria-label="Open navigation" class="icon-button mobile-menu-button" data-mobile-menu-button="" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"></path></svg></button>
+</div>
+</div>
+<nav aria-label="Mobile navigation" class="mobile-nav" data-mobile-menu=""><a href="../../../index.html#roadmap">Roadmap</a><a class="is-active" href="../../../index.html#courses">Courses</a><a href="../../../index.html#method">Method</a><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a></nav>
+</header>
+<main class="lesson-shell" id="main-content">
+<aside class="course-sidebar" data-course-sidebar><div class="sidebar-head"><a href="../index.html"><span class="course-glyph">LIN</span><div><small>Course 01</small><strong>Linux for DevOps</strong></div></a><button type="button" data-sidebar-close aria-label="Close course navigation">×</button></div><label class="sidebar-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><input type="search" placeholder="Search 100 lessons..." data-sidebar-search></label><nav class="sidebar-curriculum" aria-label="Linux course curriculum"><details class="sidebar-chapter"><summary><span>01</span>Linux and DevOps Foundations</summary><div><a class="sidebar-lesson" href="../Chapter01/Lesson1.html" data-sidebar-item><span>01</span>What Is Linux and Why DevOps Engineers Need It?</a><a class="sidebar-lesson" href="../Chapter01/Lesson2.html" data-sidebar-item><span>02</span>The Linux Kernel, User Space, and GNU Tooling</a><a class="sidebar-lesson" href="../Chapter01/Lesson3.html" data-sidebar-item><span>03</span>Linux Distributions and Release Models</a><a class="sidebar-lesson" href="../Chapter01/Lesson4.html" data-sidebar-item><span>04</span>Open Source, Licensing, and the Linux Ecosystem</a><a class="sidebar-lesson" href="../Chapter01/Lesson5.html" data-sidebar-item><span>05</span>Linux Roles Across Development, CI/CD, Cloud, and Production</a></div></details><details class="sidebar-chapter"><summary><span>02</span>Building a Safe Linux Lab</summary><div><a class="sidebar-lesson" href="../Chapter02/Lesson1.html" data-sidebar-item><span>01</span>Choosing Ubuntu, Debian, Fedora, Rocky Linux, or AlmaLinux</a><a class="sidebar-lesson" href="../Chapter02/Lesson2.html" data-sidebar-item><span>02</span>Installing Linux in a Virtual Machine</a><a class="sidebar-lesson" href="../Chapter02/Lesson3.html" data-sidebar-item><span>03</span>Using WSL for Linux Practice on Windows</a><a class="sidebar-lesson" href="../Chapter02/Lesson4.html" data-sidebar-item><span>04</span>Cloud Shells, Containers, and Browser-Based Labs</a><a class="sidebar-lesson" href="../Chapter02/Lesson5.html" data-sidebar-item><span>05</span>Snapshots, Lab Reset Strategies, and Course Conventions</a></div></details><details class="sidebar-chapter"><summary><span>03</span>Terminal, Shell, and Navigation</summary><div><a class="sidebar-lesson" href="../Chapter03/Lesson1.html" data-sidebar-item><span>01</span>Terminals, TTYs, Shells, and Command Syntax</a><a class="sidebar-lesson" href="../Chapter03/Lesson2.html" data-sidebar-item><span>02</span>Navigating with pwd, cd, ls, and tree</a><a class="sidebar-lesson" href="../Chapter03/Lesson3.html" data-sidebar-item><span>03</span>Absolute Paths, Relative Paths, and Path Expansion</a><a class="sidebar-lesson" href="../Chapter03/Lesson4.html" data-sidebar-item><span>04</span>Command History, Completion, Aliases, and Help Systems</a><a class="sidebar-lesson" href="../Chapter03/Lesson5.html" data-sidebar-item><span>05</span>Standard Input, Output, Error, and Exit Status</a></div></details><details class="sidebar-chapter"><summary><span>04</span>Files, Directories, and Links</summary><div><a class="sidebar-lesson" href="../Chapter04/Lesson1.html" data-sidebar-item><span>01</span>Creating, Copying, Moving, and Removing Files</a><a class="sidebar-lesson" href="../Chapter04/Lesson2.html" data-sidebar-item><span>02</span>File Types, Metadata, stat, and file</a><a class="sidebar-lesson" href="../Chapter04/Lesson3.html" data-sidebar-item><span>03</span>Hard Links, Symbolic Links, and Inodes</a><a class="sidebar-lesson" href="../Chapter04/Lesson4.html" data-sidebar-item><span>04</span>Globbing, Brace Expansion, and Safe Bulk Operations</a><a class="sidebar-lesson" href="../Chapter04/Lesson5.html" data-sidebar-item><span>05</span>Temporary Files, Hidden Files, and Directory Layout</a></div></details><details class="sidebar-chapter"><summary><span>05</span>Text Processing and Search</summary><div><a class="sidebar-lesson" href="../Chapter05/Lesson1.html" data-sidebar-item><span>01</span>Viewing Files with cat, less, head, and tail</a><a class="sidebar-lesson" href="../Chapter05/Lesson2.html" data-sidebar-item><span>02</span>Searching Text with grep and Regular Expressions</a><a class="sidebar-lesson" href="../Chapter05/Lesson3.html" data-sidebar-item><span>03</span>Finding Files with find, locate, and xargs</a><a class="sidebar-lesson" href="../Chapter05/Lesson4.html" data-sidebar-item><span>04</span>Transforming Text with cut, sort, uniq, tr, and wc</a><a class="sidebar-lesson" href="../Chapter05/Lesson5.html" data-sidebar-item><span>05</span>Introduction to sed, awk, and Command Pipelines</a></div></details><details class="sidebar-chapter"><summary><span>06</span>Permissions, Ownership, and Access Control</summary><div><a class="sidebar-lesson" href="../Chapter06/Lesson1.html" data-sidebar-item><span>01</span>Linux Permission Model and rwx Bits</a><a class="sidebar-lesson" href="../Chapter06/Lesson2.html" data-sidebar-item><span>02</span>chmod: Symbolic and Octal Permissions</a><a class="sidebar-lesson" href="../Chapter06/Lesson3.html" data-sidebar-item><span>03</span>Ownership with chown and chgrp</a><a class="sidebar-lesson" href="../Chapter06/Lesson4.html" data-sidebar-item><span>04</span>umask, Special Bits, and Shared Directories</a><a class="sidebar-lesson" href="../Chapter06/Lesson5.html" data-sidebar-item><span>05</span>Access Control Lists and Permission Troubleshooting</a></div></details><details class="sidebar-chapter"><summary><span>07</span>Users, Groups, sudo, and Authentication</summary><div><a class="sidebar-lesson" href="../Chapter07/Lesson1.html" data-sidebar-item><span>01</span>Local Users, Groups, and Identity Files</a><a class="sidebar-lesson" href="../Chapter07/Lesson2.html" data-sidebar-item><span>02</span>Creating and Managing Accounts</a><a class="sidebar-lesson" href="../Chapter07/Lesson3.html" data-sidebar-item><span>03</span>sudo, su, Privilege Boundaries, and Least Privilege</a><a class="sidebar-lesson" href="../Chapter07/Lesson4.html" data-sidebar-item><span>04</span>Password Policies, PAM, and Account Locking</a><a class="sidebar-lesson" href="../Chapter07/Lesson5.html" data-sidebar-item><span>05</span>Service Accounts and Automation Identities</a></div></details><details class="sidebar-chapter"><summary><span>08</span>Processes, Jobs, and Signals</summary><div><a class="sidebar-lesson" href="../Chapter08/Lesson1.html" data-sidebar-item><span>01</span>Process Model, PIDs, Parents, and /proc</a><a class="sidebar-lesson" href="../Chapter08/Lesson2.html" data-sidebar-item><span>02</span>Inspecting Processes with ps, top, and htop</a><a class="sidebar-lesson" href="../Chapter08/Lesson3.html" data-sidebar-item><span>03</span>Foreground, Background, Jobs, nohup, and tmux</a><a class="sidebar-lesson" href="../Chapter08/Lesson4.html" data-sidebar-item><span>04</span>Signals, kill, pkill, and Graceful Shutdown</a><a class="sidebar-lesson" href="../Chapter08/Lesson5.html" data-sidebar-item><span>05</span>Priorities, nice, cgroups, and Resource Limits</a></div></details><details class="sidebar-chapter"><summary><span>09</span>Packages and Software Management</summary><div><a class="sidebar-lesson" href="../Chapter09/Lesson1.html" data-sidebar-item><span>01</span>Package Formats, Repositories, and Dependency Resolution</a><a class="sidebar-lesson" href="../Chapter09/Lesson2.html" data-sidebar-item><span>02</span>APT and dpkg on Debian-Based Systems</a><a class="sidebar-lesson" href="../Chapter09/Lesson3.html" data-sidebar-item><span>03</span>DNF, YUM, and RPM on Red Hat-Based Systems</a><a class="sidebar-lesson" href="../Chapter09/Lesson4.html" data-sidebar-item><span>04</span>Installing from Source and Managing Alternatives</a><a class="sidebar-lesson" href="../Chapter09/Lesson5.html" data-sidebar-item><span>05</span>Repository Trust, Updates, Pinning, and Patch Workflows</a></div></details><details class="sidebar-chapter"><summary><span>10</span>Storage and Filesystems</summary><div><a class="sidebar-lesson" href="../Chapter10/Lesson1.html" data-sidebar-item><span>01</span>Disks, Partitions, Block Devices, and lsblk</a><a class="sidebar-lesson" href="../Chapter10/Lesson2.html" data-sidebar-item><span>02</span>Filesystems, Formatting, Mounting, and /etc/fstab</a><a class="sidebar-lesson" href="../Chapter10/Lesson3.html" data-sidebar-item><span>03</span>Capacity and Usage with df, du, and quotas</a><a class="sidebar-lesson" href="../Chapter10/Lesson4.html" data-sidebar-item><span>04</span>LVM Fundamentals, Snapshots, and Volume Growth</a><a class="sidebar-lesson" href="../Chapter10/Lesson5.html" data-sidebar-item><span>05</span>RAID Concepts, Swap, and Storage Troubleshooting</a></div></details><details class="sidebar-chapter"><summary><span>11</span>Boot, systemd, Services, and Logs</summary><div><a class="sidebar-lesson" href="../Chapter11/Lesson1.html" data-sidebar-item><span>01</span>Linux Boot Sequence and Boot Targets</a><a class="sidebar-lesson" href="../Chapter11/Lesson2.html" data-sidebar-item><span>02</span>Managing Services with systemctl</a><a class="sidebar-lesson" href="../Chapter11/Lesson3.html" data-sidebar-item><span>03</span>Writing and Hardening systemd Unit Files</a><a class="sidebar-lesson" href="../Chapter11/Lesson4.html" data-sidebar-item><span>04</span>Journal Analysis with journalctl</a><a class="sidebar-lesson" href="../Chapter11/Lesson5.html" data-sidebar-item><span>05</span>Log Rotation, Persistent Logs, and Boot Recovery</a></div></details><details class="sidebar-chapter"><summary><span>12</span>Linux Networking Fundamentals</summary><div><a class="sidebar-lesson" href="../Chapter12/Lesson1.html" data-sidebar-item><span>01</span>Interfaces, Addresses, Routes, and DNS</a><a class="sidebar-lesson" href="../Chapter12/Lesson2.html" data-sidebar-item><span>02</span>Inspecting Networks with ip, ss, ping, and traceroute</a><a class="sidebar-lesson" href="../Chapter12/Lesson3.html" data-sidebar-item><span>03</span>DNS Tools: dig, host, resolvectl, and /etc/hosts</a><a class="sidebar-lesson" href="../Chapter12/Lesson4.html" data-sidebar-item><span>04</span>Ports, Sockets, TCP, UDP, and Connection Diagnostics</a><a class="sidebar-lesson" href="../Chapter12/Lesson5.html" data-sidebar-item><span>05</span>Network Configuration, NetworkManager, and Netplan</a></div></details><details class="sidebar-chapter"><summary><span>13</span>Remote Administration and Secure Transfer</summary><div><a class="sidebar-lesson" href="../Chapter13/Lesson1.html" data-sidebar-item><span>01</span>SSH Clients, Servers, and Host Keys</a><a class="sidebar-lesson" href="../Chapter13/Lesson2.html" data-sidebar-item><span>02</span>SSH Key Authentication and ssh-agent</a><a class="sidebar-lesson" href="../Chapter13/Lesson3.html" data-sidebar-item><span>03</span>SSH Configuration, Jump Hosts, and Port Forwarding</a><a class="sidebar-lesson" href="../Chapter13/Lesson4.html" data-sidebar-item><span>04</span>Secure File Transfer with scp, sftp, and rsync</a><a class="sidebar-lesson" href="../Chapter13/Lesson5.html" data-sidebar-item><span>05</span>Hardening SSH and Troubleshooting Remote Access</a></div></details><details class="sidebar-chapter"><summary><span>14</span>Bash Scripting Fundamentals</summary><div><a class="sidebar-lesson" href="../Chapter14/Lesson1.html" data-sidebar-item><span>01</span>Script Structure, Shebangs, Variables, and Quoting</a><a class="sidebar-lesson" href="../Chapter14/Lesson2.html" data-sidebar-item><span>02</span>Tests, Conditions, case, and Boolean Logic</a><a class="sidebar-lesson" href="../Chapter14/Lesson3.html" data-sidebar-item><span>03</span>Loops, Functions, Arguments, and Exit Codes</a><a class="sidebar-lesson" href="../Chapter14/Lesson4.html" data-sidebar-item><span>04</span>Arrays, Command Substitution, and Input Handling</a><a class="sidebar-lesson" href="../Chapter14/Lesson5.html" data-sidebar-item><span>05</span>Debugging Bash with set Options and shellcheck</a></div></details><details class="sidebar-chapter" open><summary><span>15</span>Reliable Shell Automation</summary><div><a class="sidebar-lesson" href="Lesson1.html" data-sidebar-item><span>01</span>Strict Mode, Traps, Cleanup, and Temporary Resources</a><a class="sidebar-lesson" href="Lesson2.html" data-sidebar-item><span>02</span>Parsing Options and Building Command-Line Interfaces</a><a class="sidebar-lesson is-current" href="Lesson3.html" data-sidebar-item><span>03</span>Logging, Retries, Timeouts, and Idempotency</a><a class="sidebar-lesson" href="Lesson4.html" data-sidebar-item><span>04</span>JSON and YAML Workflows with jq and yq</a><a class="sidebar-lesson" href="Lesson5.html" data-sidebar-item><span>05</span>Testing Shell Scripts and Packaging Reusable Libraries</a></div></details><details class="sidebar-chapter"><summary><span>16</span>Monitoring and Performance</summary><div><a class="sidebar-lesson" href="../Chapter16/Lesson1.html" data-sidebar-item><span>01</span>CPU, Memory, Load Average, and Pressure</a><a class="sidebar-lesson" href="../Chapter16/Lesson2.html" data-sidebar-item><span>02</span>Disk I/O, Filesystem Latency, and Capacity</a><a class="sidebar-lesson" href="../Chapter16/Lesson3.html" data-sidebar-item><span>03</span>Network Throughput, Connections, and Packet Inspection</a><a class="sidebar-lesson" href="../Chapter16/Lesson4.html" data-sidebar-item><span>04</span>Performance Tools: vmstat, iostat, sar, lsof, and strace</a><a class="sidebar-lesson" href="../Chapter16/Lesson5.html" data-sidebar-item><span>05</span>Baselines, Bottleneck Analysis, and Incident Evidence</a></div></details><details class="sidebar-chapter"><summary><span>17</span>Linux Security and Hardening</summary><div><a class="sidebar-lesson" href="../Chapter17/Lesson1.html" data-sidebar-item><span>01</span>Firewalls with nftables, iptables, firewalld, and ufw</a><a class="sidebar-lesson" href="../Chapter17/Lesson2.html" data-sidebar-item><span>02</span>SELinux and AppArmor Concepts</a><a class="sidebar-lesson" href="../Chapter17/Lesson3.html" data-sidebar-item><span>03</span>Auditing, auditd, and Security Event Review</a><a class="sidebar-lesson" href="../Chapter17/Lesson4.html" data-sidebar-item><span>04</span>Kernel Parameters, sysctl, Limits, and Hardening</a><a class="sidebar-lesson" href="../Chapter17/Lesson5.html" data-sidebar-item><span>05</span>Vulnerability Patching, Integrity, and Secure Baselines</a></div></details><details class="sidebar-chapter"><summary><span>18</span>Scheduling, Archives, and Backups</summary><div><span class="sidebar-lesson is-planned" data-sidebar-item><span>01</span>Cron, at, and systemd Timers<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>02</span>Archives and Compression with tar, gzip, xz, and zip<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>03</span>Backup Strategies, Retention, and Restore Testing<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>04</span>rsync-Based Backups and Remote Replication<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>05</span>Automation Runbooks and Disaster-Recovery Exercises<i>Planned</i></span></div></details><details class="sidebar-chapter"><summary><span>19</span>Linux for Containers and DevOps Tooling</summary><div><span class="sidebar-lesson is-planned" data-sidebar-item><span>01</span>Namespaces, cgroups, Capabilities, and Containers<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>02</span>Container Hosts, Rootless Workloads, and Runtime Basics<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>03</span>Linux Networking for Docker and Kubernetes<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>04</span>Git, Build Tools, Agents, and CI Runner Hosts<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>05</span>Infrastructure Automation and Immutable-Server Patterns<i>Planned</i></span></div></details><details class="sidebar-chapter"><summary><span>20</span>Troubleshooting and Production Capstone</summary><div><span class="sidebar-lesson is-planned" data-sidebar-item><span>01</span>A Systematic Troubleshooting Method<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>02</span>Boot, Service, Storage, and Permission Incidents<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>03</span>Network and DNS Incident Scenarios<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>04</span>Security and Performance Incident Scenarios<i>Planned</i></span><span class="sidebar-lesson is-planned" data-sidebar-item><span>05</span>Capstone: Build and Operate a Hardened DevOps Server<i>Planned</i></span></div></details></nav></aside><article class="lesson-article"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="../../../index.html">Academy</a><span>/</span><a href="../index.html">Linux</a><span>/</span><span>Chapter 15</span></nav>
+<header class="lesson-header"><div class="lesson-meta"><span>Chapter 15</span><i></i><span>Lesson 03</span><i></i><span>~80 minutes</span></div><h1>Logging, Retries, Timeouts, and Idempotency</h1><p>Make automation observable and repeatable: emit structured evidence, bound external calls, retry only transient failures, and converge systems toward declared state.</p><div class="lesson-tags"><span>Structured logging</span><span>Backoff and timeout</span><span>Idempotent reconciliation</span></div></header>
+<section class="lesson-objectives" id="objectives"><p class="eyebrow">Learning objectives</p><h2>By the end of this lesson</h2><ul><li>Emit timestamped, leveled logs without contaminating data output.</li><li>Bound external commands with deadlines and interpret timeout status.</li><li>Design retry policy around transient failure classes, exponential backoff, and jitter.</li><li>Distinguish idempotent desired-state operations from repeated imperative actions.</li><li>Build and test a small reconciler that is safe to run repeatedly.</li></ul></section>
+<section id="observability"><h2>1. Automation needs evidence, not decorative output</h2><p>A log record should help answer what operation ran, when it ran, which target it affected, which attempt or phase failed, and what status was returned. Logs belong on standard error when standard output is reserved for data. Stable key-value records are easier to search than prose and remain readable without a log platform.</p><div class="diagram-card"><div class="diagram-label">Observable idempotent reconciliation loop</div><pre class="mermaid">flowchart TD
+  D["Desired state"] --> I["Inspect current state"]
+  I --> C{"Already converged?"}
+  C -- yes --> N["Log no-op and return success"]
+  C -- no --> A["Apply bounded operation"]
+  A --> R{"Result class"}
+  R -- success --> V["Verify resulting state"]
+  R -- transient --> B["Backoff with jitter and retry"]
+  R -- permanent --> F["Log evidence and fail"]
+  B --> A
+  V --> C2{"Verified?"}
+  C2 -- yes --> S["Log change and return success"]
+  C2 -- no --> F</pre></div><pre><code class="language-bash">log() {
+  local level=$1 message=$2
+  shift 2
+  printf 'time=%q level=%q component=%q message=%q' \
+    "$(date --iso-8601=seconds)" "$level" "${PROGRAM_NAME:-automation}" "$message" &gt;&amp;2
+
+  local pair
+  for pair in "$@"; do
+    printf ' %s' "$pair" &gt;&amp;2
+  done
+  printf '\n' &gt;&amp;2
+}
+
+log INFO 'starting reconciliation' "target=$target" "run_id=$run_id"
+log ERROR 'remote request failed' "status=$status" "attempt=$attempt"</code></pre><p>Do not log secrets, authorization headers, private keys, or full environment dumps. Redaction after a leak is unreliable. Decide which fields are safe before formatting the record.</p></section>
+<section id="timeouts"><h2>2. Every external dependency needs a time budget</h2><p>A command without a timeout can block a CI runner, lock, deployment, or incident workflow indefinitely. GNU <code>timeout</code> starts a command, sends a signal after the duration, and normally returns 124 when the time limit is reached. Some clients also provide connection and total timeouts; use both when they protect different phases.</p><pre><code class="language-bash">run_with_deadline() {
+  local duration=$1
+  shift
+
+  if timeout --signal=TERM --kill-after=5s "$duration" "$@"; then
+    return 0
+  fi
+
+  local status=$?
+  if (( status == 124 )); then
+    printf 'command timed out after %s: %q\n' "$duration" "$1" &gt;&amp;2
+  else
+    printf 'command failed with status %d: %q\n' "$status" "$1" &gt;&amp;2
+  fi
+  return "$status"
+}
+
+run_with_deadline 20s curl \
+  --connect-timeout 5 \
+  --max-time 18 \
+  --fail --silent --show-error \
+  https://example.com/health</code></pre><p>A timeout is not cancellation proof. The child may have started remote work before the local process is terminated. Design the remote operation around idempotency keys, request identifiers, or post-timeout state inspection.</p></section>
+<section id="retry"><h2>3. Retry only failures that may become success</h2><p>Authentication errors, malformed input, missing files, policy rejection, and deterministic validation failures do not improve with repetition. Connection resets, rate limits, temporary name-resolution failures, and unavailable services may be transient. Classify the failure before retrying and cap both attempts and elapsed time.</p><p>For exponential backoff, a common delay before attempt <em>n</em> is:</p><div class="callout"><strong>Backoff model</strong><p>\[ d_n = \min(d_{\max},\; d_0 \cdot 2^{n-1}) \]</p><p>Full jitter samples the actual sleep from \(U(0,d_n)\), reducing synchronized retry storms across many workers.</p></div><pre><code class="language-bash">retry() {
+  local max_attempts=$1 base_delay=$2 max_delay=$3
+  shift 3
+
+  local attempt=1 status delay jitter
+  while true; do
+    if "$@"; then
+      return 0
+    fi
+    status=$?
+
+    # The caller should classify permanent statuses before using retry.
+    if (( attempt &gt;= max_attempts )); then
+      return "$status"
+    fi
+
+    delay=$(( base_delay * (2 ** (attempt - 1)) ))
+    (( delay &gt; max_delay )) &amp;&amp; delay=$max_delay
+    jitter=$(( RANDOM % (delay + 1) ))
+
+    log WARN 'transient failure; retrying' \
+      "status=$status" "attempt=$attempt" "sleep_seconds=$jitter"
+    sleep "$jitter"
+    (( attempt += 1 ))
+  done
+}</code></pre><p><code>RANDOM</code> is sufficient for scheduling jitter, not cryptography. For HTTP APIs, honor server-provided retry information where appropriate and ensure the operation is safe to repeat.</p></section>
+<section id="idempotency"><h2>4. Idempotent automation converges to desired state</h2><p>An idempotent operation can be repeated without producing additional unintended changes once the desired state is reached. “Append this line” is generally not idempotent. “Ensure exactly one matching configuration entry exists” can be. “Create a user” fails on the second run; “ensure the account exists with these properties” inspects and reconciles.</p><pre><code class="language-bash">ensure_line() {
+  local file=$1 expected=$2 tmp
+  [[ -e $file ]] || : &gt; "$file"
+
+  if grep -Fxq -- "$expected" "$file"; then
+    log INFO 'configuration already converged' "file=$file"
+    return 0
+  fi
+
+  tmp=$(mktemp -- "${file}.tmp.XXXXXXXX") || return
+  trap 'rm -f -- "$tmp"' RETURN
+
+  awk -v expected="$expected" '$0 != expected { print } END { print expected }' \
+    "$file" &gt; "$tmp"
+  chmod --reference="$file" "$tmp" 2&gt;/dev/null || true
+  mv -f -- "$tmp" "$file"
+  trap - RETURN
+  log INFO 'configuration updated' "file=$file"
+}</code></pre><p>The temporary file and rename pattern prevents readers from observing a partially written file on the same filesystem. It does not replace locking when multiple writers may race. When concurrent mutation is possible, use <code>flock</code>, a service API, or another ownership mechanism.</p></section>
+<section id="lab"><h2>5. Hands-on lab: build an observable idempotent reconciler</h2><p>The lab simulates a transient dependency, retries with bounded delay, and ensures one configuration line exists exactly once. Running the script repeatedly should produce a no-op after convergence.</p><pre><code class="language-bash">lab="$HOME/devops-academy/linux/chapter15/lesson03"
+rm -rf "$lab"
+mkdir -p "$lab"
+cd "$lab"
+
+cat &gt; reconcile.sh &lt;&lt;'SCRIPT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly PROGRAM_NAME=${0##*/}
+
+log() {
+  local level=$1 message=$2
+  shift 2
+  printf 'time=%s level=%s component=%s message=%q' \
+    "$(date --iso-8601=seconds)" "$level" "$PROGRAM_NAME" "$message" &gt;&amp;2
+  printf ' %s' "$@" &gt;&amp;2
+  printf '\n' &gt;&amp;2
+}
+
+retry() {
+  local attempts=$1
+  shift
+  local n=1 status
+  until "$@"; do
+    status=$?
+    (( n &gt;= attempts )) &amp;&amp; return "$status"
+    log WARN 'retrying transient operation' "attempt=$n" "status=$status"
+    sleep 0.1
+    (( n += 1 ))
+  done
+}
+
+flaky_probe() {
+  local state_file=$1 count=0
+  [[ -f $state_file ]] &amp;&amp; count=$(&lt;"$state_file")
+  (( count += 1 ))
+  printf '%d\n' "$count" &gt; "$state_file"
+  (( count &gt;= 3 ))
+}
+
+ensure_line() {
+  local file=$1 expected=$2 tmp
+  [[ -e $file ]] || : &gt; "$file"
+  grep -Fxq -- "$expected" "$file" &amp;&amp; return 0
+  tmp=$(mktemp -- "${file}.tmp.XXXXXXXX")
+  awk -v expected="$expected" '$0 != expected {print} END {print expected}' "$file" &gt; "$tmp"
+  mv -f -- "$tmp" "$file"
+  log INFO 'configuration changed' "file=$file"
+}
+
+main() {
+  local root=${1:?root directory required}
+  mkdir -p "$root"
+  retry 5 flaky_probe "$root/probe-count" || {
+    log ERROR 'dependency did not recover'
+    return 1
+  }
+  ensure_line "$root/service.conf" 'enabled=true'
+  log INFO 'reconciliation complete'
+}
+
+main "$@"
+SCRIPT
+
+chmod u+x reconcile.sh
+bash -n reconcile.sh
+./reconcile.sh "$lab/state"
+first_hash=$(sha256sum "$lab/state/service.conf")
+./reconcile.sh "$lab/state"
+second_hash=$(sha256sum "$lab/state/service.conf")
+[[ $first_hash == "$second_hash" ]]
+[[ $(grep -Fxc 'enabled=true' "$lab/state/service.conf") -eq 1 ]]
+printf 'PASS: repeated run preserved converged state\n' </code></pre><div class="lab-checklist"><h3>Verification checklist</h3><label><input type="checkbox">The simulated dependency succeeds only after transient failures.</label><label><input type="checkbox">Retry count is bounded.</label><label><input type="checkbox">Logs are written to standard error.</label><label><input type="checkbox">The second run does not duplicate the configuration line.</label><label><input type="checkbox">The file hash is unchanged after the converged rerun.</label></div></section>
+<section id="mistakes"><h2>6. Common automation mistakes</h2><div class="mistake-list"><article><h3>“Retry every nonzero status.”</h3><p>Permanent errors waste time and can amplify damage. Classify failures and repeat only safe transient operations.</p></article><article><h3>“A local timeout means the remote action did not happen.”</h3><p>The request may have reached the server. Inspect state or use an idempotency key before repeating.</p></article><article><h3>“No output means idempotent.”</h3><p>Idempotency concerns resulting state, not quietness. Verify state before and after repeated execution.</p></article><article><h3>“Logs may include every variable for debugging.”</h3><p>Environment variables and arguments often contain credentials. Define safe fields and redact before emission.</p></article></div></section>
+<section id="knowledge-check"><h2>7. Knowledge check</h2><div class="quiz-card"><p><strong>Question 1. Why add jitter to exponential backoff?</strong></p><button type="button" data-reveal-answer>Reveal answer</button><div hidden>It spreads retries from many clients across time, reducing synchronized load spikes when a shared dependency recovers.</div></div><div class="quiz-card"><p><strong>Question 2. Why can retrying after a timeout be dangerous?</strong></p><button type="button" data-reveal-answer>Reveal answer</button><div hidden>The local process may have timed out after the remote system accepted the request. Repeating a non-idempotent action can duplicate side effects.</div></div><div class="quiz-card"><p><strong>Question 3. What proves that a reconciler is idempotent?</strong></p><button type="button" data-reveal-answer>Reveal answer</button><div hidden>Repeated execution against already-converged state produces no additional unintended state change, verified through state inspection or tests.</div></div></section>
+<section id="summary"><h2>8. Summary</h2><p>Reliable automation is observable, bounded, selective, and convergent. Emit structured evidence, keep data and logs separate, place deadlines around external calls, retry only classified transient failures with capped backoff and jitter, and express operations as desired-state reconciliation. Then test repeated execution rather than merely asserting idempotency.</p></section>
+<section id="references"><h2>9. Further reading</h2><ul class="reference-list"><li><a href="https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html" target="_blank" rel="noopener">GNU Coreutils — <code>timeout</code></a>.</li><li><a href="https://www.gnu.org/software/bash/manual/bash.html#Bash-Conditional-Expressions" target="_blank" rel="noopener">GNU Bash Reference Manual — conditional expressions</a>.</li><li><a href="https://man7.org/linux/man-pages/man1/flock.1.html" target="_blank" rel="noopener"><code>flock(1)</code> advisory locking</a>.</li><li>Service-specific API documentation for idempotency keys, rate limits, and retry semantics.</li></ul></section><div class="next-concepts"><span>Next lesson</span><h3>JSON and YAML Workflows with jq and yq</h3><p>Treat configuration as structured data with validated jq and yq transformations instead of fragile line editing.</p></div><nav aria-label="Lesson navigation" class="lesson-pagination"><a href="Lesson2.html">Previous lesson</a><a href="../index.html">Course curriculum</a><a href="Lesson4.html">Next lesson</a></nav><section aria-labelledby="support-title" class="support-panel" id="support">
+<div aria-hidden="true" class="support-orbit"></div>
+<div class="support-copy">
+<p class="eyebrow">Keep the academy open</p>
+<h2 id="support-title">Support free, practical DevOps education.</h2>
+<p>Every lesson is designed to remain readable in a browser, downloadable from GitHub, and usable without a paid learning platform. Contributions help expand and maintain the curriculum.</p>
+<div aria-label="Abolfazl Mohammadijoo social links" class="social-row">
+<a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">GitHub</a>
+<a href="https://ir.linkedin.com/in/abolfazlmohammadijoo" rel="noopener" target="_blank">LinkedIn</a>
+<a href="https://x.com/mohammadijoo" rel="noopener" target="_blank">X</a>
+<a href="https://www.youtube.com/@abolfazlmohammadijoo" rel="noopener" target="_blank">YouTube</a>
+<a href="https://mohammadijoo.ir/en/" rel="noopener" target="_blank">Website</a>
+</div>
+</div>
+<div class="wallet-card">
+<div class="wallet-head"><span class="network-dot"></span><span>Ethereum / ERC-20</span></div>
+<code data-wallet-address="">0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code>
+<button class="copy-wallet" data-copy-wallet="" type="button"><svg aria-hidden="true" viewbox="0 0 24 24"><rect height="11" rx="2" width="11" x="8" y="8"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy address</span></button>
+<small>Send only Ethereum/ERC-20 compatible assets to this address.</small>
+</div>
+</section>
+<footer class="site-footer">
+<div>
+<a class="footer-brand" href="../../../index.html"><span aria-hidden="true" class="brand-mark mini">&gt;_</span> DevOps Academy</a>
+<p>A browser-native learning path for modern software delivery and operations.</p>
+</div>
+<div class="footer-meta"><span>Created by <a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">Abolfazl Mohammadijoo</a></span><span>© <span data-current-year="">2026</span></span></div>
+</footer></article><aside aria-label="On this page" class="on-page-toc"><p>On this page</p><nav data-on-page-toc=""></nav><div class="toc-progress"><span>Lesson progress</span><strong data-progress-label="">0%</strong></div></aside>
+<button class="course-drawer-button" data-sidebar-open="" type="button">Course contents</button>
+</main>
+<script defer="" src="../../../assets/js/main.js"></script>
+<script defer="" src="../../../assets/js/course.js"></script>
+<script defer="" src="../../../assets/js/mermaid_export.js"></script>
+</body></html>
