@@ -103,7 +103,7 @@
     const availableStat = [...document.querySelectorAll('.hero-stats > div')]
       .find(item => item.querySelector('span')?.textContent.trim().toLowerCase() === 'available now');
     const availableCount = availableStat?.querySelector('strong');
-    if (availableCount) availableCount.textContent = '1';
+    if (availableCount) availableCount.textContent = '2';
 
     const versionControlStep = [...document.querySelectorAll('.console-step')]
       .find(step => step.querySelector('strong')?.textContent.trim() === 'Version Control');
