@@ -97,7 +97,7 @@
       const dot = pill.querySelector('span')?.cloneNode(true);
       pill.replaceChildren();
       if (dot) pill.appendChild(dot);
-      pill.appendChild(document.createTextNode('Linux course is now available'));
+      pill.appendChild(document.createTextNode('Bash course is now available'));
     }
 
     const availableStat = [...document.querySelectorAll('.hero-stats > div')]
