@@ -1,0 +1,1337 @@
+<!doctype html>
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Understand Bash pipelines as concurrent process networks, stdout-to-stdin wiring, stderr behavior, PIPESTATUS, pipefail, subshell effects, SIGPIPE, and robust pipeline error handling."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Pipelines, pipefail, and Pipeline Exit Status | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+        >
+          <span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span>
+          <span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          >
+        </a>
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg
+          ></a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar>
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">SH</span>
+            <div>
+              <small>Course 02</small><strong>Bash for DevOps</strong>
+            </div></a
+          ><button
+            type="button"
+            data-sidebar-close
+            aria-label="Close course navigation"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-4-4" /></svg
+          ><input
+            type="search"
+            placeholder="Search 100 lessons..."
+            data-sidebar-search
+        /></label>
+        <nav class="sidebar-curriculum" aria-label="Bash course curriculum">
+          <details class="sidebar-chapter">
+            <summary><span>01</span>Bash and Shell Foundations</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter01/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>What Is Bash and Why DevOps Engineers Use It?</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter01/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Terminals, Shells, Processes, and the Bash
+                Execution Model</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter01/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Running Bash on Linux, macOS, WSL, and Git
+                Bash</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter01/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Command Syntax, Quoting, Expansion, and Exit
+                Status</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter01/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Help, History, Environment, and Safe Interactive
+                Practice</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Scripts, Shebangs, Variables, and Shell Data
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter02/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>From Interactive Commands to Executable Bash
+                Scripts</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter02/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Shebangs, Execution Permissions, and Script
+                Launch Methods</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter02/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Variables, Environment Variables, readonly, and
+                export</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter02/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Parameter Expansion and Default Values</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter02/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Integer Arithmetic, Strings, and Bash&#x27;s
+                Dynamic Data Model</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open>
+            <summary>
+              <span>03</span>Standard Streams, Redirection, and Pipelines
+            </summary>
+            <div>
+              <a class="sidebar-lesson" href="Lesson1.html" data-sidebar-item
+                ><span>01</span>stdin, stdout, stderr, and File Descriptors</a
+              ><a class="sidebar-lesson" href="Lesson2.html" data-sidebar-item
+                ><span>02</span>Output Redirection, Append, noclobber, and
+                tee</a
+              ><a class="sidebar-lesson" href="Lesson3.html" data-sidebar-item
+                ><span>03</span>Input Redirection, Here Documents, and Here
+                Strings</a
+              ><a
+                class="sidebar-lesson is-current"
+                href="Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Pipelines, pipefail, and Pipeline Exit Status</a
+              ><a class="sidebar-lesson" href="Lesson5.html" data-sidebar-item
+                ><span>05</span>Process Substitution and Multi-Stream
+                Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Tests, Conditions, and Boolean Logic
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter04/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Exit Status as Bash&#x27;s Fundamental Boolean
+                Signal</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter04/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>test, [, and [[ ]] Expressions</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter04/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>File, String, and Numeric Condition Tests</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter04/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>if, elif, else, and Compound Conditions</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter04/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>case Patterns and Defensive Branching</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Loops, Functions, and Reusable Logic
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter05/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>for Loops over Words, Files, and Sequences</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter05/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>while and until Loops</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter05/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Reading Streams Safely with read</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter05/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Functions, Local Variables, and Return Status</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter05/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Breaking Large Scripts into Reusable
+                Components</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Arguments, Options, and Command-Line Interfaces
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter06/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Positional Parameters and Special Bash
+                Parameters</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter06/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>shift and Robust Argument Processing</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter06/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Parsing Short Options with getopts</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter06/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Designing Usage, Help, and Validation</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter06/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Building Predictable DevOps Command-Line
+                Tools</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>07</span>Arrays and Structured Shell State</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter07/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Indexed Arrays</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter07/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Associative Arrays</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter07/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Safe Array Expansion and Quoting</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter07/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Reading Command Output into Arrays with
+                mapfile</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter07/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>When Bash Data Structures Are the Wrong
+                Abstraction</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>08</span>Text Processing for Automation</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter08/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>grep and Regular Expressions in Automation</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter08/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>cut, paste, tr, sort, uniq, and wc</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter08/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>sed for Stream Editing</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter08/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>awk for Field-Oriented Processing</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter08/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Composing Text Pipelines without Fragile
+                Parsing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Files, Directories, and Filesystem Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter09/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Safe Path Handling and Filename Edge Cases</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter09/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Creating, Copying, Moving, and Removing
+                Content</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter09/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>find, xargs, and Null-Delimited Workflows</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter09/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Temporary Files and Directories with mktemp</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter09/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Permissions, Ownership, and Atomic File
+                Updates</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Processes, Jobs, Signals, and Concurrency
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter10/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Processes, Subshells, Background Jobs, and
+                PIDs</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter10/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>wait, Job Coordination, and Exit Status</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter10/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Signals and Graceful Termination</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter10/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Timeouts and Long-Running Commands</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter10/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Controlled Parallelism with xargs and Background
+                Workers</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Error Handling, Strictness, Traps, and Cleanup
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter11/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>set -e, errexit, and Its Surprising Edge
+                Cases</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter11/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>set -u, nounset, and Safer Variable Access</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter11/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>pipefail and Reliable Pipeline Failure
+                Detection</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter11/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>trap, Cleanup, and Signal-Aware Scripts</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter11/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Designing Explicit Error Paths and
+                Diagnostics</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>12</span>Reliable Production Automation</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter12/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Idempotency and Convergent Shell Operations</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter12/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Retries, Backoff, and Transient Failure
+                Handling</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter12/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Structured Logging, Timestamps, and Verbosity
+                Levels</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter12/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Locking, Mutual Exclusion, and Duplicate-Run
+                Protection</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter12/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Safe Temporary State, Checkpoints, and
+                Recovery</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>13</span>JSON, YAML, CSV, and API Data</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter13/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>curl Fundamentals for HTTP Automation</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter13/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Parsing JSON Safely with jq</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter13/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Working with YAML using yq</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter13/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>CSV, Delimited Data, and Quoting Hazards</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter13/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Building Resilient API-to-Shell Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>14</span>Networking and Remote Automation</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter14/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>DNS, TCP, and Endpoint Checks from Bash</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter14/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>SSH for Non-Interactive Remote Commands</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter14/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>scp, sftp, and rsync Transfer Workflows</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter14/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Quoting Across Local and Remote Shell
+                Boundaries</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter14/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Fleet Automation without Turning Bash into a
+                Config Manager</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>15</span>Integrating DevOps Tools from Bash</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter15/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Automating Git Safely from Scripts</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter15/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Driving Docker and Container CLIs</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter15/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>kubectl and Kubernetes Automation</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter15/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>systemctl, journalctl, and Service Workflows</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter15/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Wrapping Cloud and Infrastructure CLIs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>16</span>Bash in CI/CD Pipelines</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter16/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Non-Interactive Shell Behavior in CI Runners</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter16/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Environment Variables, Secrets, and Masked
+                Output</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter16/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Artifacts, Workspaces, and Cross-Step State</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter16/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Fail-Fast versus Best-Effort Pipeline Steps</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter16/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Writing Portable CI Helper Scripts</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Testing, Linting, Formatting, and Debugging
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter17/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Tracing with set -x, PS4, and Selective Debug
+                Output</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter17/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Static Analysis with ShellCheck</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter17/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Formatting Bash with shfmt</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter17/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Unit and Integration Tests with Bats</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter17/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Test Fixtures, Golden Files, and Failure
+                Injection</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Security, Trust Boundaries, and Portability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter18/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Command Injection and Untrusted Input</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter18/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Secrets, Credentials, and Process-Table
+                Exposure</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter18/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Secure Temporary Files, Permissions, and
+                Cleanup</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter18/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Bash versus POSIX sh and Portability
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter18/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Dependency Checks, Version Gates, and Safe
+                Degradation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary><span>19</span>Performance and Parallel Execution</summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter19/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Avoiding Needless Processes and Useless
+                Pipelines</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter19/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Streaming versus Buffering Large Data</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter19/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Profiling Shell Scripts with time and
+                Timestamps</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter19/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Parallel Workers, Bounded Concurrency, and
+                Ordering</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter19/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Knowing When to Replace Bash with Python, Go, or
+                Another Tool</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Production Design Patterns and Capstone
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                href="../Chapter20/Lesson1.html"
+                data-sidebar-item
+                ><span>01</span>Script Architecture, Modules, and Configuration
+                Layers</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter20/Lesson2.html"
+                data-sidebar-item
+                ><span>02</span>Observability, Metrics, Logs, and
+                Machine-Readable Output</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter20/Lesson3.html"
+                data-sidebar-item
+                ><span>03</span>Deployment, Versioning, and Backward
+                Compatibility</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter20/Lesson4.html"
+                data-sidebar-item
+                ><span>04</span>Operational Runbooks, Rollback, and
+                Incident-Friendly Automation</a
+              ><a
+                class="sidebar-lesson"
+                href="../Chapter20/Lesson5.html"
+                data-sidebar-item
+                ><span>05</span>Capstone: Build a Production-Grade Release
+                Orchestrator</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Bash</a><span>/</span><span>Chapter 3</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 03</span><i></i><span>Lesson 04</span><i></i
+            ><span>~60 minutes</span>
+          </div>
+          <h1>Pipelines, pipefail, and Pipeline Exit Status</h1>
+          <p>
+            The vertical bar is one of the shell's defining features: it turns
+            small programs into data-processing systems. But production
+            pipelines have subtleties—multiple exit statuses, concurrent
+            execution, subshells, early consumers, and stderr that does not
+            enter the pipe unless explicitly redirected.
+          </p>
+          <div class="lesson-tags">
+            <span>Beginner</span><span>Streams &amp; pipelines</span
+            ><span>Hands-on lab</span>
+          </div>
+        </header>
+        <section class="lesson-objectives" id="objectives">
+          <p class="eyebrow">Learning objectives</p>
+          <h2>By the end of this lesson</h2>
+          <ul>
+            <li>Explain how Bash wires adjacent pipeline commands.</li>
+            <li>Distinguish pipeline data flow from stderr flow.</li>
+            <li>Inspect individual stage results with PIPESTATUS.</li>
+            <li>Use pipefail to avoid false-success pipelines.</li>
+            <li>
+              Recognize subshell and SIGPIPE behavior that affects production
+              scripts.
+            </li>
+          </ul>
+        </section>
+        <section id="pipeline-model">
+          <h2>1. A pipeline connects stdout to the next stdin</h2>
+          <p>
+            For a pipeline such as <code>producer | filter | consumer</code>,
+            Bash creates pipes and launches commands so each stage can stream
+            data to the next.
+          </p>
+          <div class="diagram-card">
+            <div class="diagram-label">Three-stage pipeline</div>
+            <pre class="mermaid">
+flowchart TD
+  A[&quot;producer&quot;] --&gt;|&quot;stdout&quot;| P1[&quot;pipe&quot;]
+  P1 --&gt;|&quot;stdin&quot;| B[&quot;filter&quot;]
+  B --&gt;|&quot;stdout&quot;| P2[&quot;pipe&quot;]
+  P2 --&gt;|&quot;stdin&quot;| C[&quot;consumer&quot;]
+  A -. &quot;stderr&quot; .-&gt; T[&quot;terminal / inherited stderr&quot;]
+  B -. &quot;stderr&quot; .-&gt; T
+  C -. &quot;stderr&quot; .-&gt; T</pre
+            >
+          </div>
+          <p>
+            stderr is not part of the pipeline by default. Each stage inherits
+            the shell's stderr unless you redirect it.
+          </p>
+        </section>
+        <section id="streaming">
+          <h2>
+            2. Pipelines stream; they do not require whole intermediate files
+          </h2>
+          <p>
+            Pipeline stages can run concurrently. A producer can write data
+            while the next command is already consuming it. This enables
+            low-latency processing and avoids many temporary files.
+          </p>
+          <pre><code class="language-bash">printf &#x27;%s\n&#x27;   &#x27;INFO api ready&#x27;   &#x27;WARN cache slow&#x27;   &#x27;INFO worker ready&#x27; |
+  grep &#x27;^INFO&#x27; |
+  awk &#x27;{print $2}&#x27; |
+  sort -u</code></pre>
+          <p>
+            This composability depends on each command honoring a useful stream
+            contract. Tools that write clean records to stdout and diagnostics
+            to stderr integrate naturally.
+          </p>
+        </section>
+        <section id="default-status">
+          <h2>
+            3. By default, pipeline status usually follows the last command
+          </h2>
+          <p>
+            Without <code>pipefail</code>, Bash uses the exit status of the
+            final command as the status of a normal foreground pipeline (subject
+            to negation with <code>!</code>). That can hide an upstream failure.
+          </p>
+          <pre><code class="language-bash">set +o pipefail
+
+bash -c &#x27;exit 7&#x27; | cat
+printf &#x27;pipeline status without pipefail = %d\n&#x27; &quot;$?&quot; </code></pre>
+          <p>
+            <code>cat</code> successfully reaches end-of-file and exits zero, so
+            the overall pipeline can appear successful even though the producer
+            failed.
+          </p>
+        </section>
+        <section id="pipestatus">
+          <h2>4. PIPESTATUS preserves each stage's most recent status</h2>
+          <p>
+            Bash stores an array named <code>PIPESTATUS</code> containing the
+            exit statuses of commands in the most recently executed foreground
+            pipeline.
+          </p>
+          <pre><code class="language-bash">set +o pipefail
+
+bash -c &#x27;printf &quot;data\n&quot;; exit 7&#x27; |
+  grep data |
+  cat
+
+statuses=(&quot;${PIPESTATUS[@]}&quot;)
+printf &#x27;stage statuses: %s\n&#x27; &quot;${statuses[*]}&quot; </code></pre>
+          <p>
+            Capture <code>PIPESTATUS</code> immediately. Running another
+            command—even a diagnostic <code>printf</code>—updates shell status
+            state and can replace the values you intended to inspect.
+          </p>
+        </section>
+        <section id="pipefail">
+          <h2>5. pipefail makes upstream failure visible</h2>
+          <p>
+            With <code>set -o pipefail</code>, a pipeline returns zero only if
+            all commands succeed. If one or more commands fail, the pipeline
+            status is the value from the rightmost failing command.
+          </p>
+          <pre><code class="language-bash">set -o pipefail
+
+if bash -c &#x27;printf &quot;data\n&quot;; exit 7&#x27; | grep data | cat; then
+  printf &#x27;pipeline succeeded\n&#x27;
+else
+  status=$?
+  printf &#x27;pipeline failed with status %d\n&#x27; &quot;$status&quot; &gt;&amp;2
+fi</code></pre>
+          <div class="callout">
+            <strong>Production default</strong>
+            <p>
+              For scripts where every pipeline stage matters,
+              <code>pipefail</code> is usually an important reliability setting.
+              It prevents a successful final filter from masking an earlier
+              failure.
+            </p>
+          </div>
+        </section>
+        <section id="errexit">
+          <h2>6. pipefail and set -e solve different problems</h2>
+          <p>
+            <code>pipefail</code> changes how pipeline status is calculated.
+            <code>set -e</code> (errexit) influences when Bash exits after
+            certain failing commands. They are related but not interchangeable,
+            and <code>set -e</code> has context-dependent exceptions.
+          </p>
+          <pre><code class="language-bash">set -o pipefail
+
+if producer | transformer | consumer; then
+  printf &#x27;all pipeline stages succeeded\n&#x27;
+else
+  printf &#x27;pipeline failed\n&#x27; &gt;&amp;2
+  exit 1
+fi</code></pre>
+          <p>
+            Explicit control flow such as <code>if</code> remains valuable even
+            in scripts that use strict-mode settings. It documents which
+            failures are expected, recoverable, or fatal.
+          </p>
+        </section>
+        <section id="stderr-pipeline">
+          <h2>7. |& includes stderr in the pipe</h2>
+          <p>
+            Bash provides <code>|&</code> as shorthand that pipes both stdout
+            and stderr from the command on the left into the next command. It is
+            roughly equivalent to merging stderr into stdout before the pipe.
+          </p>
+          <pre><code class="language-bash">{
+  printf &#x27;normal record\n&#x27;
+  printf &#x27;warning record\n&#x27; &gt;&amp;2
+} |&amp; sed &#x27;s/^/[combined] /&#x27; </code></pre>
+          <p>
+            Use this only when combining the streams is intentional. If stdout
+            carries structured data, <code>|&</code> can make the stream
+            impossible for downstream parsers to consume reliably.
+          </p>
+        </section>
+        <section id="subshell">
+          <h2>8. Pipeline stages can run in subshell environments</h2>
+          <p>
+            A common surprise is assigning a variable inside a loop that
+            receives pipeline input:
+          </p>
+          <pre><code class="language-bash">count=0
+
+printf &#x27;%s\n&#x27; a b c |
+while IFS= read -r line; do
+  ((count += 1))
+done
+
+printf &#x27;count after pipeline = %d\n&#x27; &quot;$count&quot; </code></pre>
+          <p>
+            In typical Bash behavior, the loop runs in a subshell environment
+            because it is a pipeline element, so changes do not persist in the
+            parent shell. A redirection avoids that problem:
+          </p>
+          <pre><code class="language-bash">count=0
+
+while IFS= read -r line; do
+  ((count += 1))
+done &lt; &lt;(printf &#x27;%s\n&#x27; a b c)
+
+printf &#x27;count after redirection = %d\n&#x27; &quot;$count&quot; </code></pre>
+          <p>
+            Bash also has a <code>lastpipe</code> option with specific
+            conditions, but relying on explicit data-flow structure is usually
+            easier to reason about.
+          </p>
+        </section>
+        <section id="sigpipe">
+          <h2>9. Early consumers can cause SIGPIPE upstream</h2>
+          <p>
+            Commands such as <code>head</code> may stop after receiving enough
+            data. An upstream writer that continues writing can then receive
+            <code>SIGPIPE</code> because no reader remains.
+          </p>
+          <pre><code class="language-bash">set -o pipefail
+
+# Depending on the producer and timing, the producer may observe a broken pipe.
+yes &quot;record&quot; | head -n 3
+
+statuses=(&quot;${PIPESTATUS[@]}&quot;)
+printf &#x27;statuses: %s\n&#x27; &quot;${statuses[*]}&quot; </code></pre>
+          <p>
+            This is not always a “real error” in the business operation; it can
+            be a normal consequence of intentionally stopping consumption early.
+            Under <code>pipefail</code>, however, such a status can make the
+            overall pipeline non-zero. Robust scripts distinguish expected early
+            termination from unexpected failure.
+          </p>
+        </section>
+        <section id="pipeline-files">
+          <h2>10. Know when a temporary file is clearer than a pipeline</h2>
+          <p>
+            Pipelines are ideal for streaming transformations, but a temporary
+            file may be better when you need to:
+          </p>
+          <ul>
+            <li>inspect or preserve intermediate evidence after failure,</li>
+            <li>
+              run multiple independent consumers over the same expensive output,
+            </li>
+            <li>validate a complete artifact before continuing,</li>
+            <li>retry one stage without rerunning an expensive producer.</li>
+          </ul>
+          <p>
+            Good shell design is not a contest to use the most pipes. Choose the
+            data-flow structure that makes failure and recovery easiest to
+            reason about.
+          </p>
+        </section>
+        <section id="lab">
+          <h2>11. Hands-on lab: detect an upstream failure</h2>
+          <p>
+            Create a three-stage pipeline where the producer intentionally fails
+            after emitting valid-looking data. Compare behavior with and without
+            <code>pipefail</code>.
+          </p>
+          <pre><code class="language-bash">mkdir -p &quot;$HOME/devops-academy/bash/chapter03/lesson04&quot;
+cd &quot;$HOME/devops-academy/bash/chapter03/lesson04&quot;
+
+cat &gt; producer.sh &lt;&lt;&#x27;EOF&#x27;
+#!/usr/bin/env bash
+printf &#x27;%s\n&#x27;   &#x27;INFO api ready&#x27;   &#x27;WARN cache slow&#x27;   &#x27;INFO worker ready&#x27;
+printf &#x27;producer: source was incomplete\n&#x27; &gt;&amp;2
+exit 23
+EOF
+
+set +o pipefail
+bash producer.sh | grep &#x27;^INFO&#x27; | wc -l
+printf &#x27;without pipefail: %d\n&#x27; &quot;$?&quot;
+
+set -o pipefail
+if bash producer.sh | grep &#x27;^INFO&#x27; | wc -l; then
+  printf &#x27;unexpected success\n&#x27;
+else
+  pipeline_status=$?
+  stage_statuses=(&quot;${PIPESTATUS[@]}&quot;)
+  printf &#x27;with pipefail: %d\n&#x27; &quot;$pipeline_status&quot;
+  printf &#x27;recent statuses snapshot: %s\n&#x27; &quot;${stage_statuses[*]}&quot;
+fi</code></pre>
+          <div class="lab-checklist">
+            <h3>Verification checklist</h3>
+            <label
+              ><input type="checkbox" />Without pipefail, the pipeline can
+              report success.</label
+            ><label
+              ><input type="checkbox" />With pipefail, the producer failure
+              becomes visible.</label
+            ><label
+              ><input type="checkbox" />You understand why stderr remained
+              visible despite the pipe.</label
+            ><label
+              ><input type="checkbox" />You can explain what information
+              <code>PIPESTATUS</code> provides.</label
+            >
+          </div>
+        </section>
+        <section id="knowledge-check">
+          <h2>12. Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 1.</strong> Does <code>|</code> pipe stderr by
+              default?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              No. It connects stdout from the left command to stdin of the right
+              command. stderr remains separate unless redirected.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 2.</strong> What problem does
+              <code>set -o pipefail</code> solve?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              It prevents an upstream pipeline failure from being hidden merely
+              because a later command exits successfully.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 3.</strong> Why can assignments inside
+              <code>producer | while read ...</code> disappear afterward?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Pipeline elements commonly execute in subshell environments, so
+              variable changes in that shell do not modify the parent shell.
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>13. Summary</h2>
+          <p>
+            Pipelines are concurrent stream networks. The pipe connects stdout
+            to the next stdin; stderr remains separate unless you deliberately
+            merge it. Bash's default pipeline status can hide upstream failures,
+            while <code>PIPESTATUS</code> exposes individual stages and
+            <code>pipefail</code> makes the overall result stricter. Also
+            account for subshell scope and legitimate SIGPIPE behavior from
+            early consumers.
+          </p>
+        </section>
+        <section id="references">
+          <h2>14. Further reading</h2>
+          <ul class="reference-list">
+            <li>
+              GNU Bash Reference Manual — Pipelines and <code>PIPESTATUS</code>.
+            </li>
+            <li>
+              GNU Bash Reference Manual — <code>pipefail</code> and shell
+              options.
+            </li>
+            <li>POSIX Shell Command Language — pipelines.</li>
+            <li>
+              Linux <code>pipe(7)</code> and <code>signal(7)</code> manual
+              pages.
+            </li>
+          </ul>
+        </section>
+        <section id="next-concepts">
+          <div class="next-concepts">
+            <span>Next lesson</span>
+            <h3>Process Substitution and Multi-Stream Workflows</h3>
+            <p>
+              The next lesson continues the Chapter 3 stream and redirection
+              model.
+            </p>
+          </div>
+        </section>
+        <nav aria-label="Lesson navigation" class="lesson-pagination">
+          <a href="Lesson3.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson5.html">Next lesson</a>
+        </nav>
+
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  </body>
+</html>
