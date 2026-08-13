@@ -1,0 +1,1697 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Refactor monolithic PowerShell into pure logic, explicit side-effect adapters, injected dependencies, stable result contracts, idempotent operations, and a project structure that stays easy to test and analyze."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Design for Testability: Pure Logic, Side-Effect Boundaries, and Dependency
+      Injection | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+<style id="powershell-table-presentation-fix">
+/* Match the DevOps Academy lesson-table visual language while preserving native table semantics. */
+.table-wrap{margin:24px 0;border:1px solid var(--line);border-radius:14px;overflow-x:auto;background:var(--surface)}
+.table-wrap table{width:100%;min-width:620px;border-collapse:collapse;border-spacing:0;color:var(--muted);font-size:11px;line-height:1.55}
+.table-wrap th,.table-wrap td{padding:13px 16px;border-top:1px solid var(--line);text-align:left;vertical-align:top;overflow-wrap:anywhere}
+.table-wrap thead th{border-top:0;background:var(--surface-2);font:700 9px/1.35 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted-2)}
+.table-wrap tbody td:first-child{color:var(--text);font-weight:700}
+.table-wrap tbody tr:hover td{background:color-mix(in srgb,var(--surface-2) 58%,transparent)}
+.table-wrap code{overflow-wrap:anywhere}
+@media(max-width:820px){.table-wrap{margin:20px 0}.table-wrap table{min-width:560px}.table-wrap th,.table-wrap td{padding:11px 13px}}
+</style>
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+        >
+          <span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span>
+          <span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          >
+        </a>
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg
+          ></a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">PS</span>
+            <div>
+              <small>Course 03</small><strong>PowerShell for DevOps</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 100 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="PowerShell course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>PowerShell and Automation Foundations
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>What Is PowerShell and Why DevOps Engineers Use
+                It?</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>PowerShell 7.x, Windows PowerShell 5.1,
+                Editions, and Compatibility</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Installing and Running PowerShell on Windows,
+                Linux, and macOS</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Hosts, Sessions, Runspaces, Processes, and the
+                Execution Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Build a Safe PowerShell Lab and Learn the Course
+                Workflow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Command Discovery, Help, Syntax, and Native
+              Commands
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Verb-Noun Commands, Aliases, Functions, Scripts,
+                and Applications</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Get-Help, Update-Help, about_* Topics, and
+                Reading Syntax</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Parameters, Parameter Sets, Common Parameters,
+                and Binding Basics</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>PowerShell Parsing, Quoting, Escaping, and
+                Command Construction</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Native Executables, Exit Codes, Arguments, and
+                Cross-Shell Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Objects and the PowerShell Pipeline
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Objects Instead of Lines of Text</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Inspect Objects with Get-Member and Type
+                Information</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>How Pipeline Parameter Binding Actually Works</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Filter, Project, Sort, Group, Measure, and
+                Enumerate</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Formatting Is the End of the Pipeline</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Variables, Types, Strings, Operators, and
+              Expressions
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Variables, Assignment, Automatic Variables, and
+                Environment Data</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Numbers, Booleans, Date/Time, Type Conversion,
+                and Type Accelerators</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Strings, Interpolation, Here-Strings,
+                Formatting, and Encoding</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Comparison, Logical, Matching, Replacement,
+                Collection, and Type Operators</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Expressions, Subexpressions, Script Blocks, and
+                Evaluation Order</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Arrays, Hashtables, PSCustomObject, and Structured
+              State
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Arrays and Lists: Preserve One Value per
+                Element</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Hashtables, Ordered Dictionaries, Lookup Tables,
+                and Enumeration</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>PSCustomObject and Designing Useful Pipeline
+                Objects</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Splatting, Calculated Properties, and Readable
+                Command Construction</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Nested Data, Copy Semantics, Equality, and
+                Choosing a Data Structure</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Conditions, Loops, Switch, and Script Blocks
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>if, elseif, else, Truthiness, and Defensive
+                Conditions</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>switch: Values, Wildcards, Regex, Files, and
+                Multiple Matches</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>foreach, ForEach-Object, and Pipeline
+                Enumeration</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>for, while, do/while, do/until, break, and
+                continue</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Script Blocks, Closures, Delayed Execution, and
+                Reusable Behavior</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Providers, Paths, Files, Content, and Permissions
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Providers, PSDrives, Locations, and the Unified
+                Item Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Paths, Literal Paths, Wildcards, Test-Path, and
+                Robust Path Construction</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Create, Copy, Move, Remove, and Inspect Files
+                and Directories Safely</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>File Content, Streams, Encoding, Redirection,
+                and Atomic Updates</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Permissions, ACLs, Hashes, Certificates, and
+                Safe File Integrity Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Scripts, Parameters, Scope, Profiles, and Reusable
+              Entry Points
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>From Interactive Commands to .ps1 Scripts</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Script Parameters: param(), Mandatory Input,
+                Defaults, and Switches</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>ValidateSet, ValidatePattern, ValidateRange,
+                ValidateScript, and Safer Input</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Scopes, Scope Modifiers, Session State, and
+                Avoiding Global Variables</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Profiles, Configuration, Environment Overrides,
+                and CLI Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Functions, Advanced Functions, and Cmdlet-Like
+              Tooling
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Functions, Naming, Parameters, Output, and
+                Return Semantics</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Advanced Functions, CmdletBinding, and Common
+                Parameters</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Pipeline Input with begin, process, end, and
+                clean</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>SupportsShouldProcess, -WhatIf, -Confirm, and
+                Safe Mutation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Comment-Based Help, Output Contracts, and
+                Function Design for Teams</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Streams, Errors, Exceptions, Debugging, and
+              Diagnostics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>PowerShell Output Streams and Why They Are Not
+                Just stdout/stderr</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Terminating and Non-Terminating Errors,
+                ErrorAction, and Preferences</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>try, catch, finally, throw, and Designing
+                Explicit Failure Paths</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Native Exit Codes, $?, $LASTEXITCODE, and
+                Cross-Tool Failure Handling</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Debugging, Breakpoints, Trace-Command,
+                Transcripts, and Diagnostic Logging</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>CSV, JSON, XML, CLIXML, YAML, and Configuration
+              Data
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>CSV and Tabular Data with Import-Csv and
+                Export-Csv</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>JSON and REST-Friendly Objects</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>XML, XPath-Like Navigation, and Legacy
+                Enterprise Data</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>CLIXML, Serialization, Deserialized Objects, and
+                Type Fidelity</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>YAML and Other Configuration Formats in
+                DevOps</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Processes, Services, Events, CIM, and System
+              Administration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Processes, Child Processes, Start-Process, and
+                Process Automation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Services and Long-Running Workloads</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>CIM, WMI History, and Structured Windows
+                Management</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Event Logs, System Information, and Operational
+                Evidence</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Scheduled Tasks, Local Administration, and
+                Platform Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Networking, HTTP, REST APIs, and Resilient
+              Integrations
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>DNS, Connectivity, Ports, and Network
+                Diagnostics</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>HTTP Fundamentals and Invoke-WebRequest</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>REST APIs with Invoke-RestMethod</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Authentication, Tokens, Headers, Pagination, and
+                Rate Limits</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Build a Production-Style API Client</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>PowerShell Remoting, Sessions, SSH, and Fleet
+              Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Remoting Mental Model: PSRP, Transports,
+                Sessions, and Serialization</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>WinRM/WSMan Remoting on Windows: Configuration
+                and Trust</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>PSSession and Invoke-Command for Repeatable
+                Remote Work</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>PowerShell Remoting over SSH Across Platforms</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Fleet Automation, Throttling, Partial Failure,
+                and When to Use Another Tool</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Modules, Classes, .NET Interop, and Package
+              Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Module Discovery, Import, Autoloading, and
+                PSModulePath</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Build a Script Module with .psm1 and Explicit
+                Exports</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Module Manifests, Versions, Dependencies, and
+                Compatibility Metadata</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>PowerShell Classes, Enums, using Statements, and
+                .NET Interoperability</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>PSResourceGet, PowerShell Gallery, Private
+                Repositories, and Supply-Chain Safety</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Security, Credentials, Secrets, Signing, and Least
+              Privilege
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Execution Policy, Script Signing, and What
+                Execution Policy Does Not Do</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>PSCredential, SecureString, SecretManagement,
+                and Secret Storage</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Injection, Invoke-Expression, Native Arguments,
+                and Untrusted Input</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Logging, Transcription, AMSI, Script Block
+                Logging, and Auditability</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>JEA, Constrained Language, Application Control,
+                and Least-Privilege Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Jobs, Parallelism, Runspaces, and Performance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Background Jobs and Job Lifecycle</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Thread Jobs and ForEach-Object -Parallel</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Runspaces and Runspace Pools: The Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Cancellation, Timeouts, Ordering,
+                Synchronization, and Partial Failure</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Measure Performance Before Optimizing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>18</span>Testing, Pester, Static Analysis, and Maintainable
+              Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Pester Fundamentals: Describe, Context, It, and
+                Assertions</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Mocks, TestDrive, Fixtures, and Testing Side
+                Effects</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>PSScriptAnalyzer, Rules, Style, and Static
+                Diagnostics</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Code Coverage, CI Test Reports, and Quality
+                Gates</a
+              ><a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Design for Testability: Pure Logic, Side-Effect
+                Boundaries, and Dependency Injection</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>PowerShell in CI/CD, Git, Containers, Kubernetes,
+              and Cloud Toolchains
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Git and Repository Automation from PowerShell</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>PowerShell in CI/CD Runners</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Docker, kubectl, Helm, and Other DevOps CLIs
+                from PowerShell</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Azure, AWS, Microsoft Graph, and Cloud
+                PowerShell Modules</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Release Orchestration, Artifacts, Machine
+                Output, and Cross-Tool Contracts</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Production Automation, DSC, Observability, and
+              Capstone
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Idempotency, Convergence, Retries, Checkpoints,
+                and Recovery</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Desired State Configuration: Modern DSC and
+                PowerShell DSC Context</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Production Logging, Metrics, Events, and
+                Operational Runbooks</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Production Script Architecture, Versioning,
+                Configuration, and Deployment</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Capstone: Build a Production-Grade
+                Cross-Platform DevOps Automation Toolkit</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">PowerShell</a><span>/</span
+          ><span>Chapter 18</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 18</span><i></i><span>Lesson 05</span><i></i
+            ><span>~235 minutes</span>
+          </div>
+          <h1>
+            Design for Testability: Pure Logic, Side-Effect Boundaries, and
+            Dependency Injection
+          </h1>
+          <p>
+            Refactor monolithic PowerShell into pure logic, explicit side-effect
+            adapters, injected dependencies, stable result contracts, idempotent
+            operations, and a project structure that stays easy to test and
+            analyze.
+          </p>
+          <div class="lesson-tags">
+            <span>Testability</span><span>Pure functions</span
+            ><span>Dependency injection</span><span>Architecture</span>
+          </div>
+        </header>
+        <section class="lesson-objectives" id="objectives">
+          <p class="eyebrow">Learning objectives</p>
+          <ul>
+            <li>
+              Identify hidden dependencies and testability problems in
+              monolithic automation.
+            </li>
+            <li>
+              Separate input parsing, pure transformations, adapters, and
+              orchestration.
+            </li>
+            <li>
+              Use simple dependency injection for clients, clocks, paths, and
+              configuration.
+            </li>
+            <li>
+              Design stable structured output and explicit failure contracts.
+            </li>
+            <li>
+              Explain how idempotency and WhatIf complement automated testing.
+            </li>
+            <li>
+              Complete a mini-project with Pester tests, analyzer checks, and a
+              maintainability review.
+            </li>
+          </ul>
+        </section>
+        <section id="testability">
+          <h2>1. Testability is an architectural property</h2>
+          <p>
+            If a script reads global variables, parses input, calls three APIs,
+            writes files, mutates services, logs, and formats terminal output
+            inside one giant function, testing becomes expensive because every
+            behavior is entangled with every side effect.
+            <strong>Testability</strong> means important behavior can be
+            exercised with controlled inputs and observable outputs without
+            recreating the entire production environment.
+          </p>
+          <p>
+            The goal is not “write code for tests.” The goal is to make
+            responsibilities explicit. That generally improves maintainability,
+            incident diagnosis, reuse, and change safety even before a test is
+            written.
+          </p>
+          <div class="diagram-card"><div class="diagram-label">Testability is an architectural property</div>
+            <pre class="mermaid">
+flowchart TD;
+    I["Input parsing"] --> P["Pure planning / transformation"];
+    P --> O["Orchestration"];
+    O --> A["External-effect adapters"];
+    A --> S["System / API / Files"];
+    O --> R["Stable result object"];
+  </pre
+            >
+          </div>
+        </section>
+        <section id="monolith">
+          <h2>2. A monolithic script hides dependencies</h2>
+          <p>
+            Consider this intentionally compressed example. It reads
+            configuration, builds an API body, contacts a service, writes a
+            report, and emits display text in one place. To unit-test the
+            planning rule, you would also have to control disk, network, and
+            current environment state.
+          </p>
+          <pre><code class="language-powershell"># Monolithic shape -- shown for refactoring, not recommended architecture.
+param([string]$ConfigPath,[string]$ApiUri)
+
+$config = Get-Content -LiteralPath $ConfigPath -Raw | ConvertFrom-Json
+$body = @{
+    app      = $config.name
+    replicas = if ($config.environment -eq 'prod') { 3 } else { 1 }
+} | ConvertTo-Json
+
+$response = Invoke-RestMethod -Uri $ApiUri -Method Post -Body $body -ContentType 'application/json'
+$response | ConvertTo-Json | Set-Content -LiteralPath './last-deploy.json'
+Write-Host "Deployment submitted for $($config.name)"</code></pre>
+          <p>
+            The business rule “production gets three replicas” is buried between
+            unrelated effects. The first refactoring target is to extract that
+            rule into pure logic.
+          </p>
+        </section>
+        <section id="pure-core">
+          <h2>3. Move deterministic business logic into a pure function</h2>
+          <p>
+            A pure planning function should accept ordinary values/objects and
+            return a stable object. It should not know where configuration came
+            from or how the deployment will be sent.
+          </p>
+          <pre><code class="language-powershell">function ConvertTo-DeploymentPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Config)
+
+    if ([string]::IsNullOrWhiteSpace($Config.name)) {
+        throw 'Config.name is required.'
+    }
+
+    $replicas = if ($Config.environment -eq 'prod') { 3 } else { 1 }
+
+    [pscustomobject]@{
+        App         = [string]$Config.name
+        Environment = [string]$Config.environment
+        Replicas    = $replicas
+    }
+}
+
+$config = [pscustomobject]@{name='api';environment='prod'}
+ConvertTo-DeploymentPlan -Config $config</code></pre>
+          <p>
+            This function can be tested with in-memory objects. No test needs a
+            network or temporary file just to verify replica selection and
+            validation.
+          </p>
+        </section>
+        <section id="adapters">
+          <h2>4. Put side effects behind small adapters</h2>
+          <p>
+            An <strong>adapter</strong> is a small function that translates your
+            domain operation into an external command or API. The adapter is
+            where retries, authentication injection, filesystem semantics, or
+            platform-specific behavior belongs.
+          </p>
+          <pre><code class="language-powershell">function Send-DeploymentPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][uri]$Uri,
+        [hashtable]$Headers = @{}
+    )
+
+    $body = $Plan | ConvertTo-Json -Depth 4
+    Invoke-RestMethod -Uri $Uri -Method Post -Headers $Headers -Body $body -ContentType 'application/json'
+}
+
+function Save-DeploymentReport {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Result,[Parameter(Mandatory)][string]$Path)
+
+    $Result | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $Path
+    Get-Item -LiteralPath $Path
+}</code></pre>
+          <p>
+            Adapters can have focused integration tests. Most business rules
+            should stay outside them.
+          </p>
+        </section>
+        <section id="dependency-injection">
+          <h2>
+            5. Dependency injection means passing a capability instead of hiding
+            it
+          </h2>
+          <p>
+            <strong>Dependency injection</strong> sounds architectural, but the
+            PowerShell idea is small: if orchestration needs a sender, clock,
+            path, or client, pass it in rather than reaching for a global
+            singleton or hard-coded endpoint. The caller decides which
+            implementation to provide.
+          </p>
+          <pre><code class="language-powershell">function Invoke-DeploymentWorkflow {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Config,
+        [Parameter(Mandatory)][scriptblock]$Sender,
+        [scriptblock]$Clock = { [datetime]::UtcNow }
+    )
+
+    $started = &amp; $Clock
+    try {
+        $plan = ConvertTo-DeploymentPlan -Config $Config
+        $remote = &amp; $Sender $plan
+        [pscustomobject]@{
+            Success   = $true
+            Plan      = $plan
+            Remote    = $remote
+            StartedAt = $started
+            Error     = $null
+        }
+    } catch {
+        [pscustomobject]@{
+            Success   = $false
+            Plan      = $null
+            Remote    = $null
+            StartedAt = $started
+            Error     = $_.Exception.Message
+        }
+    }
+}</code></pre>
+          <p>
+            Production can inject a sender that calls
+            <code>Invoke-RestMethod</code>. A unit test can inject a script
+            block that returns a fixed object. The orchestration contract is
+            identical.
+          </p>
+        </section>
+        <section id="test-injected">
+          <h2>
+            6. Injected dependencies make orchestration tests small and
+            deterministic
+          </h2>
+          <pre><code class="language-powershell">Describe 'Invoke-DeploymentWorkflow' {
+    It 'returns a stable success record without a network call' {
+        $config = [pscustomobject]@{name='api';environment='prod'}
+        $sender = { param($plan) [pscustomobject]@{id='deploy-123';accepted=$true} }
+        $clock  = { [datetime]'2026-08-11T12:00:00Z' }
+
+        $result = Invoke-DeploymentWorkflow -Config $config -Sender $sender -Clock $clock
+
+        $result.Success | Should-BeTrue
+        $result.Plan.Replicas | Should-Be 3
+        $result.Remote.id | Should-Be 'deploy-123'
+        $result.StartedAt | Should-Be ([datetime]'2026-08-11T12:00:00Z')
+    }
+
+    It 'returns an explicit failure contract when the dependency fails' {
+        $sender = { param($plan) throw 'simulated API outage' }
+        $result = Invoke-DeploymentWorkflow -Config ([pscustomobject]@{name='api';environment='dev'}) -Sender $sender
+
+        $result.Success | Should-BeFalse
+        $result.Error | Should-MatchString 'simulated API outage'
+    }
+}</code></pre>
+          <p>
+            The tests do not know whether the production sender uses REST,
+            remoting, a queue, or a cloud SDK. They verify the orchestration
+            contract.
+          </p>
+        </section>
+        <section id="output-contracts">
+          <h2>
+            7. Stable output contracts make scripts composable and testable
+          </h2>
+          <p>
+            Returning ad hoc strings forces callers and tests to parse
+            presentation text. Prefer small structured records with explicit
+            fields such as <code>Success</code>, <code>Target</code>,
+            <code>Changed</code>, <code>Duration</code>, and <code>Error</code>.
+            The UI can format them later.
+          </p>
+          <pre><code class="language-powershell">function New-OperationResult {
+    param([string]$Target,[bool]$Success,[bool]$Changed,[string]$Message)
+    [pscustomobject]@{
+        Target  = $Target
+        Success = $Success
+        Changed = $Changed
+        Message = $Message
+    }
+}
+
+$result = New-OperationResult -Target 'api' -Success $true -Changed $false -Message 'Already converged'
+$result | ConvertTo-Json -Compress</code></pre>
+          <p>
+            A stable object contract helps Pester assertions, JSON output,
+            logging, CI summaries, and downstream PowerShell pipelines all
+            consume the same semantics.
+          </p>
+        </section>
+        <section id="idempotency-whatif">
+          <h2>8. Idempotency and WhatIf reduce the cost of safe testing</h2>
+          <p>
+            An <strong>idempotent</strong> operation converges to the desired
+            state without making unnecessary repeated changes.
+            <code>SupportsShouldProcess</code> adds <code>-WhatIf</code>/<code
+              >-Confirm</code
+            >
+            preview semantics for state changes. Both properties make automation
+            easier to test because “no change needed” and “preview only” become
+            explicit states.
+          </p>
+          <pre><code class="language-powershell">function Set-TrainingConfig {
+    [CmdletBinding(SupportsShouldProcess)]
+    param([string]$Path,[string]$DesiredContent)
+
+    $current = if (Test-Path -LiteralPath $Path) {
+        Get-Content -LiteralPath $Path -Raw
+    } else { $null }
+
+    if ($current -eq $DesiredContent) {
+        return [pscustomobject]@{Path=$Path;Changed=$false;Reason='AlreadyDesired'}
+    }
+
+    if ($PSCmdlet.ShouldProcess($Path,'Write desired training configuration')) {
+        Set-Content -LiteralPath $Path -Value $DesiredContent -NoNewline
+        return [pscustomobject]@{Path=$Path;Changed=$true;Reason='Updated'}
+    }
+
+    [pscustomobject]@{Path=$Path;Changed=$false;Reason='WhatIfOrDeclined'}
+}</code></pre>
+          <p>
+            Unit tests can verify the decision logic; TestDrive integration
+            tests can verify filesystem behavior; <code>-WhatIf</code> provides
+            an additional operational safety contract.
+          </p>
+        </section>
+        <section id="layout">
+          <h2>
+            9. Organize source, tests, fixtures, and integration work by
+            responsibility
+          </h2>
+          <p>
+            One reasonable project shape keeps production source separate from
+            tests and test data. There is no single mandatory layout; the
+            important point is that boundaries are visible.
+          </p>
+          <pre><code class="language-text">MyAutomation/
+├── src/
+│   ├── MyAutomation.psm1
+│   ├── Public/
+│   └── Private/
+├── tests/
+│   ├── unit/
+│   ├── integration/
+│   └── fixtures/
+├── build/
+│   └── Test-Quality.ps1
+├── artifacts/              # generated, normally ignored by Git
+└── PSScriptAnalyzerSettings.psd1</code></pre>
+          <p>
+            Module structure from Chapter 15 fits naturally here: public
+            functions form the supported surface, private helpers remain
+            internal, and tests target behavior at the narrowest useful
+            boundary.
+          </p>
+        </section>
+        <section id="mini-project">
+          <h2>10. Mini-project — assemble a maintainable deployment planner</h2>
+          <p>
+            The capstone combines the chapter's ideas: pure planning, an
+            injected sender, stable results, Pester tests, analyzer checks, and
+            one repeatable quality command.
+          </p>
+          <pre><code class="language-powershell"># 1. Pure logic
+$config = [pscustomobject]@{name='api';environment='prod'}
+$plan = ConvertTo-DeploymentPlan -Config $config
+
+# 2. Controlled local sender for development/testing
+$fakeSender = {
+    param($p)
+    [pscustomobject]@{id="local-$($p.App)";accepted=$true}
+}
+
+# 3. Orchestration
+$result = Invoke-DeploymentWorkflow -Config $config -Sender $fakeSender
+$result
+
+# 4. Quality checks
+Invoke-ScriptAnalyzer -Path ./src -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+Invoke-Pester -Path ./tests -Output Detailed</code></pre>
+          <p>
+            Production deployment changes only the adapter injection. The
+            planner and orchestration tests remain useful because their
+            contracts do not depend on the external implementation.
+          </p>
+        </section>
+        <section id="maintainability-review">
+          <h2>
+            11. Review maintainability with questions, not line-count dogma
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Review question</th>
+                  <th>Healthy sign</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    Can I test important logic without network/files/admin
+                    rights?
+                  </td>
+                  <td>Pure logic and injected adapters exist.</td>
+                </tr>
+                <tr>
+                  <td>Are external effects obvious?</td>
+                  <td>They live in small named adapters.</td>
+                </tr>
+                <tr>
+                  <td>Can callers rely on outputs?</td>
+                  <td>Functions return documented structured contracts.</td>
+                </tr>
+                <tr>
+                  <td>Can a failed dependency be simulated?</td>
+                  <td>Tests inject or mock controlled failures.</td>
+                </tr>
+                <tr>
+                  <td>Can a state change be previewed?</td>
+                  <td>
+                    SupportsShouldProcess/WhatIf is used where appropriate.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Can quality run locally and in CI?</td>
+                  <td>One repository quality script owns the gate.</td>
+                </tr>
+                <tr>
+                  <td>Are platform differences isolated?</td>
+                  <td>
+                    Windows/Linux/macOS adapters are separated from shared
+                    logic.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="mistakes">
+          <h2>12. Common design-for-testability mistakes</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mistake</th>
+                  <th>Consequence</th>
+                  <th>Better design</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Hidden globals and hard-coded endpoints</td>
+                  <td>
+                    Tests require process-wide mutation or real infrastructure.
+                  </td>
+                  <td>Pass configuration/clients explicitly.</td>
+                </tr>
+                <tr>
+                  <td>Catch everything and return “OK” strings</td>
+                  <td>Failures become ambiguous and unassertable.</td>
+                  <td>Use explicit structured success/error contracts.</td>
+                </tr>
+                <tr>
+                  <td>Mock internal helpers heavily</td>
+                  <td>Tests lock implementation in place.</td>
+                  <td>Test public behavior and mock external boundaries.</td>
+                </tr>
+                <tr>
+                  <td>One function owns every responsibility</td>
+                  <td>Every test needs every dependency.</td>
+                  <td>
+                    Split parsing, pure logic, adapters, and orchestration.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Treat WhatIf as a unit-test replacement</td>
+                  <td>Preview does not prove behavior or rollback.</td>
+                  <td>
+                    Use WhatIf plus Pester plus disposable integration tests.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="lab">
+          <h2>13. Lab — complete the chapter quality loop</h2>
+          <p>
+            Use the module/workspace from the earlier lessons and complete these
+            steps: place pure planning logic under <code>src</code>; move
+            filesystem/network calls into adapters; inject the remote sender and
+            clock; add Pester tests for success and controlled failure; add one
+            TestDrive integration test; run PSScriptAnalyzer with project
+            settings; then run the Chapter 18 quality script.
+          </p>
+          <pre><code class="language-powershell"># Expected local quality sequence
+Import-Module PSScriptAnalyzer
+Import-Module Pester
+
+$diagnostics = @(Invoke-ScriptAnalyzer -Path ./src -Recurse -Settings ./PSScriptAnalyzerSettings.psd1)
+$tests = Invoke-Pester -Path ./tests -PassThru -Output Detailed
+
+[pscustomobject]@{
+    AnalyzerDiagnostics = $diagnostics.Count
+    Tests                = $tests.TotalCount
+    FailedTests          = $tests.FailedCount
+    MaintainabilityGate  = ($diagnostics.Count -eq 0 -and $tests.FailedCount -eq 0)
+}</code></pre>
+          <p>
+            Do not optimize for a particular count of functions or tests. The
+            review succeeds when important logic is isolated, side effects are
+            explicit, failure contracts are testable, and the quality command is
+            reproducible.
+          </p>
+        </section>
+        <section id="verification">
+          <h2>14. Verification checklist</h2>
+          <ul>
+            <li>
+              You can identify hidden dependencies in a monolithic script.
+            </li>
+            <li>
+              You can extract pure transformations from external-effect code.
+            </li>
+            <li>
+              You can define small adapters around APIs/files/platform commands.
+            </li>
+            <li>
+              You can inject script blocks/clients/clocks instead of hiding
+              globals.
+            </li>
+            <li>You can return stable structured success/failure contracts.</li>
+            <li>
+              You can combine Pester, PSScriptAnalyzer, WhatIf, and project
+              layout into a maintainable workflow.
+            </li>
+          </ul>
+        </section>
+        <section id="knowledge">
+          <h2>15. Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 1.</strong> What does dependency injection mean
+              in simple PowerShell terms?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Pass the required client, command capability, path, clock, or
+              configuration into the function instead of hiding it in
+              global/hard-coded state.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 2.</strong> Why separate pure logic from
+              adapters?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Pure logic can be tested cheaply and deterministically, while
+              adapters isolate external side effects and platform concerns.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 3.</strong> Why prefer structured output over
+              status strings?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Objects provide stable fields that tests, logs, JSON, CI, and
+              downstream PowerShell can consume without parsing display text.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 4.</strong> How does idempotency improve
+              testability?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              No-change versus changed behavior becomes explicit and repeatable
+              instead of accumulating uncontrolled side effects.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Question 5.</strong> Does SupportsShouldProcess replace
+              tests?
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              No. WhatIf is an operational preview mechanism; tests still verify
+              behavior and contracts.
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>16. Chapter summary and next bridge</h2>
+          <p>
+            Chapter 18 made quality part of PowerShell development: Pester 6
+            expresses behavior, mocks and TestDrive isolate effects,
+            PSScriptAnalyzer catches static risks, coverage and reports feed CI,
+            and testable architecture keeps those practices affordable as the
+            codebase grows.
+          </p>
+          <p>
+            Chapter 19 takes this maintainable automation into the wider DevOps
+            toolchain: Git repositories, CI runners, Docker, Kubernetes CLIs,
+            cloud modules, artifacts, and release orchestration.
+          </p>
+        </section>
+        <section id="references">
+          <h2>17. Authoritative references</h2>
+          <ul>
+            <li>
+              <a href="https://pester.dev/docs/quick-start/"
+                >Pester — Quick Start</a
+              >
+            </li>
+            <li>
+              <a href="https://pester.dev/docs/usage/mocking"
+                >Pester — Mocking</a
+              >
+            </li>
+            <li>
+              <a href="https://pester.dev/docs/usage/code-coverage"
+                >Pester — Code Coverage</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://learn.microsoft.com/en-us/powershell/utility-modules/psscriptanalyzer/using-scriptanalyzer?view=ps-modules"
+                >Microsoft Learn — Using PSScriptAnalyzer</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_functions_advanced_methods?view=powershell-7.6"
+                >Microsoft Learn — Advanced function methods / ShouldProcess</a
+              >
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson navigation" class="lesson-pagination">
+          <a href="Lesson4.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="../Chapter19/Lesson1.html">Next chapter</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  </body>
+</html>
