@@ -1,0 +1,2092 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Checkpoint safe reference automation by creating tool-owned refs, moving them with expected-old guards, coordinating a multi-ref transaction, inspecting reflogs, packing storage, and rejecting stale writers."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Checkpoint Lab — Refs, Reflogs, Packed Refs, Symbolic References, and
+      Reference Transactions | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer src="../../../assets/js/highlight-git.js"></script>
+    <style id="git-course-table-styles">
+      /* Native semantic-table styling aligned with the DevOps Academy visual system. */
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 620px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-2);
+        color: var(--muted-2);
+        font: 700 10px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+
+      .lesson-article .table-wrap tbody tr {
+        background: transparent;
+        transition: background-color 0.18s ease;
+      }
+
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+
+      .lesson-article .table-wrap td strong,
+      .lesson-article .table-wrap th strong {
+        color: var(--text);
+      }
+
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .lesson-article .table-wrap caption {
+        padding: 0 0 12px;
+        color: var(--muted);
+        font-size: 12px;
+        text-align: left;
+      }
+
+      @media (max-width: 760px) {
+        .lesson-article .table-wrap {
+          margin: 20px 0;
+        }
+
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+
+        .lesson-article .table-wrap thead th,
+        .lesson-article .table-wrap tbody td {
+          padding: 11px 13px;
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg></a
+          ><button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg></button
+          ><button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">GIT</span>
+            <div>
+              <small>Course 04</small><strong>Git Complete Course</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 130 lessons..."
+            type="search"
+        /></label>
+        <nav aria-label="Git course curriculum" class="sidebar-curriculum">
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Version Control Foundations and Distributed
+              Collaboration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Version Control Foundations and Distributed
+                Collaboration: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Version Control Foundations and Distributed
+                Collaboration: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Version Control Foundations and Distributed
+                Collaboration: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Version Control Foundations and Distributed
+                Collaboration: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Version Control Foundations and
+                Distributed Collaboration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Installing Git, Configuration Scopes, Identity,
+              Editors, and Credentials
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Installing Git, Configuration Scopes, Identity,
+                Editors, and Credentials: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Installing Git, Configuration Scopes, Identity,
+                Editors, and Credentials: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Installing Git, Configuration Scopes, Identity,
+                Editors, and Credentials: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Installing Git, Configuration Scopes, Identity,
+                Editors, and Credentials: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Installing Git, Configuration
+                Scopes, Identity, Editors, and Credentials</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Git Object Model: Blobs, Trees, Commits, Tags, and
+              the Object Database
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Git Object Model: Blobs, Trees, Commits, Tags,
+                and the Object Database: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Git Object Model: Blobs, Trees, Commits, Tags,
+                and the Object Database: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Git Object Model: Blobs, Trees, Commits, Tags,
+                and the Object Database: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Git Object Model: Blobs, Trees, Commits, Tags,
+                and the Object Database: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Git Object Model: Blobs, Trees,
+                Commits, Tags, and the Object Database</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Repositories, Working Tree, Index, HEAD, and the
+              File Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Repositories, Working Tree, Index, HEAD, and the
+                File Lifecycle: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Repositories, Working Tree, Index, HEAD, and the
+                File Lifecycle: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Repositories, Working Tree, Index, HEAD, and the
+                File Lifecycle: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Repositories, Working Tree, Index, HEAD, and the
+                File Lifecycle: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Repositories, Working Tree,
+                Index, HEAD, and the File Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Commits, Diffs, History Inspection, Revision
+              Ranges, and Message Discipline
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Commits, Diffs, History Inspection, Revision
+                Ranges, and Message Discipline: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Commits, Diffs, History Inspection, Revision
+                Ranges, and Message Discipline: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Commits, Diffs, History Inspection, Revision
+                Ranges, and Message Discipline: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Commits, Diffs, History Inspection, Revision
+                Ranges, and Message Discipline: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Commits, Diffs, History
+                Inspection, Revision Ranges, and Message Discipline</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Branches, Fast-Forward and Three-Way Merges, and
+              Branching Strategies
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Branches, Fast-Forward and Three-Way Merges, and
+                Branching Strategies: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Branches, Fast-Forward and Three-Way Merges, and
+                Branching Strategies: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Branches, Fast-Forward and Three-Way Merges, and
+                Branching Strategies: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Branches, Fast-Forward and Three-Way Merges, and
+                Branching Strategies: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Branches, Fast-Forward and
+                Three-Way Merges, and Branching Strategies</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Remotes, Refspecs, Fetch, Pull, Push, SSH, HTTPS,
+              and Protocol Behavior
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Remotes, Refspecs, Fetch, Pull, Push, SSH,
+                HTTPS, and Protocol Behavior: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Remotes, Refspecs, Fetch, Pull, Push, SSH,
+                HTTPS, and Protocol Behavior: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Remotes, Refspecs, Fetch, Pull, Push, SSH,
+                HTTPS, and Protocol Behavior: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Remotes, Refspecs, Fetch, Pull, Push, SSH,
+                HTTPS, and Protocol Behavior: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Remotes, Refspecs, Fetch, Pull,
+                Push, SSH, HTTPS, and Protocol Behavior</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Collaborative Workflows: Forks, Upstreams, Pull
+              Requests, and Reviewable History
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Collaborative Workflows: Forks, Upstreams, Pull
+                Requests, and Reviewable History: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Collaborative Workflows: Forks, Upstreams, Pull
+                Requests, and Reviewable History: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Collaborative Workflows: Forks, Upstreams, Pull
+                Requests, and Reviewable History: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Collaborative Workflows: Forks, Upstreams, Pull
+                Requests, and Reviewable History: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Collaborative Workflows: Forks,
+                Upstreams, Pull Requests, and Reviewable History</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Rebase, Interactive Rebase, Cherry-Pick, Amend, and
+              Safe History Editing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Rebase, Interactive Rebase, Cherry-Pick, Amend,
+                and Safe History Editing: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Rebase, Interactive Rebase, Cherry-Pick, Amend,
+                and Safe History Editing: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Rebase, Interactive Rebase, Cherry-Pick, Amend,
+                and Safe History Editing: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Rebase, Interactive Rebase, Cherry-Pick, Amend,
+                and Safe History Editing: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Rebase, Interactive Rebase,
+                Cherry-Pick, Amend, and Safe History Editing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Undoing Changes, Reset, Restore, Revert, Reflog,
+              and Lost-Work Recovery
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Undoing Changes, Reset, Restore, Revert, Reflog,
+                and Lost-Work Recovery: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Undoing Changes, Reset, Restore, Revert, Reflog,
+                and Lost-Work Recovery: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Undoing Changes, Reset, Restore, Revert, Reflog,
+                and Lost-Work Recovery: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Undoing Changes, Reset, Restore, Revert, Reflog,
+                and Lost-Work Recovery: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Undoing Changes, Reset,
+                Restore, Revert, Reflog, and Lost-Work Recovery</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Tags, Signed Releases, Semantic Versioning,
+              Changelogs, and Support Lines
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Tags, Signed Releases, Semantic Versioning,
+                Changelogs, and Support Lines: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Tags, Signed Releases, Semantic Versioning,
+                Changelogs, and Support Lines: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Tags, Signed Releases, Semantic Versioning,
+                Changelogs, and Support Lines: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Tags, Signed Releases, Semantic Versioning,
+                Changelogs, and Support Lines: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Tags, Signed Releases, Semantic
+                Versioning, Changelogs, and Support Lines</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Stash, Worktrees, Temporary Work, and Parallel
+              Development Contexts
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Stash, Worktrees, Temporary Work, and Parallel
+                Development Contexts: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Stash, Worktrees, Temporary Work, and Parallel
+                Development Contexts: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Stash, Worktrees, Temporary Work, and Parallel
+                Development Contexts: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Stash, Worktrees, Temporary Work, and Parallel
+                Development Contexts: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Stash, Worktrees, Temporary
+                Work, and Parallel Development Contexts</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Submodules, Subtrees, Nested Dependencies, and
+              Multi-Repository Tradeoffs
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Submodules, Subtrees, Nested Dependencies, and
+                Multi-Repository Tradeoffs: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Submodules, Subtrees, Nested Dependencies, and
+                Multi-Repository Tradeoffs: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Submodules, Subtrees, Nested Dependencies, and
+                Multi-Repository Tradeoffs: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Submodules, Subtrees, Nested Dependencies, and
+                Multi-Repository Tradeoffs: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Submodules, Subtrees, Nested
+                Dependencies, and Multi-Repository Tradeoffs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Sparse Checkout, Partial Clone, Shallow Clone, LFS,
+              and Large Repository Access
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Sparse Checkout, Partial Clone, Shallow Clone,
+                LFS, and Large Repository Access: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Sparse Checkout, Partial Clone, Shallow Clone,
+                LFS, and Large Repository Access: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Sparse Checkout, Partial Clone, Shallow Clone,
+                LFS, and Large Repository Access: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Sparse Checkout, Partial Clone, Shallow Clone,
+                LFS, and Large Repository Access: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Sparse Checkout, Partial Clone,
+                Shallow Clone, LFS, and Large Repository Access</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Advanced Revision Selection, Log Search, Path
+              History, and Ancestry Analysis
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Advanced Revision Selection, Log Search, Path
+                History, and Ancestry Analysis: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Advanced Revision Selection, Log Search, Path
+                History, and Ancestry Analysis: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Advanced Revision Selection, Log Search, Path
+                History, and Ancestry Analysis: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Advanced Revision Selection, Log Search, Path
+                History, and Ancestry Analysis: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Advanced Revision Selection,
+                Log Search, Path History, and Ancestry Analysis</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Bisect, Blame, Pickaxe Search, Merge Bases, and
+              Repository Forensics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Bisect, Blame, Pickaxe Search, Merge Bases, and
+                Repository Forensics: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Bisect, Blame, Pickaxe Search, Merge Bases, and
+                Repository Forensics: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Bisect, Blame, Pickaxe Search, Merge Bases, and
+                Repository Forensics: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Bisect, Blame, Pickaxe Search, Merge Bases, and
+                Repository Forensics: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Bisect, Blame, Pickaxe Search,
+                Merge Bases, and Repository Forensics</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Hooks, Aliases, Templates, Attributes, and Local
+              Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Hooks, Aliases, Templates, Attributes, and Local
+                Automation: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Hooks, Aliases, Templates, Attributes, and Local
+                Automation: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Hooks, Aliases, Templates, Attributes, and Local
+                Automation: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Hooks, Aliases, Templates, Attributes, and Local
+                Automation: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Hooks, Aliases, Templates,
+                Attributes, and Local Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Plumbing Commands, Index Internals, cat-file,
+              hash-object, and commit-tree
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Plumbing Commands, Index Internals, cat-file,
+                hash-object, and commit-tree: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Plumbing Commands, Index Internals, cat-file,
+                hash-object, and commit-tree: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Plumbing Commands, Index Internals, cat-file,
+                hash-object, and commit-tree: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Plumbing Commands, Index Internals, cat-file,
+                hash-object, and commit-tree: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Plumbing Commands, Index
+                Internals, cat-file, hash-object, and commit-tree</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>19</span>Refs, Reflogs, Packed Refs, Symbolic References,
+              and Reference Transactions
+            </summary>
+            <div>
+              <a class="sidebar-lesson" data-sidebar-item="" href="Lesson1.html"
+                ><span>01</span>Refs, Reflogs, Packed Refs, Symbolic References,
+                and Reference Transactions: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson2.html"
+                ><span>02</span>Refs, Reflogs, Packed Refs, Symbolic References,
+                and Reference Transactions: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson3.html"
+                ><span>03</span>Refs, Reflogs, Packed Refs, Symbolic References,
+                and Reference Transactions: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson4.html"
+                ><span>04</span>Refs, Reflogs, Packed Refs, Symbolic References,
+                and Reference Transactions: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Refs, Reflogs, Packed Refs,
+                Symbolic References, and Reference Transactions</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Merge Algorithms, Conflict Engineering, rerere, and
+              Custom Merge Drivers
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Merge Algorithms, Conflict Engineering, rerere,
+                and Custom Merge Drivers: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Merge Algorithms, Conflict Engineering, rerere,
+                and Custom Merge Drivers: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Merge Algorithms, Conflict Engineering, rerere,
+                and Custom Merge Drivers: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Merge Algorithms, Conflict Engineering, rerere,
+                and Custom Merge Drivers: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Merge Algorithms, Conflict
+                Engineering, rerere, and Custom Merge Drivers</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Signing, Trust, Secret Removal, fsck, Safe
+              Directories, and Repository Integrity
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Signing, Trust, Secret Removal, fsck, Safe
+                Directories, and Repository Integrity: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Signing, Trust, Secret Removal, fsck, Safe
+                Directories, and Repository Integrity: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Signing, Trust, Secret Removal, fsck, Safe
+                Directories, and Repository Integrity: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Signing, Trust, Secret Removal, fsck, Safe
+                Directories, and Repository Integrity: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Signing, Trust, Secret Removal,
+                fsck, Safe Directories, and Repository Integrity</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Commit-Graphs, Multi-Pack Indexes, Maintenance,
+              Garbage Collection, and Performance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Commit-Graphs, Multi-Pack Indexes, Maintenance,
+                Garbage Collection, and Performance: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Commit-Graphs, Multi-Pack Indexes, Maintenance,
+                Garbage Collection, and Performance: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Commit-Graphs, Multi-Pack Indexes, Maintenance,
+                Garbage Collection, and Performance: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Commit-Graphs, Multi-Pack Indexes, Maintenance,
+                Garbage Collection, and Performance: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Commit-Graphs, Multi-Pack
+                Indexes, Maintenance, Garbage Collection, and Performance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Patch-Based and Email Workflows: format-patch, am,
+              apply, and Maintainer Flows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Patch-Based and Email Workflows: format-patch,
+                am, apply, and Maintainer Flows: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Patch-Based and Email Workflows: format-patch,
+                am, apply, and Maintainer Flows: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Patch-Based and Email Workflows: format-patch,
+                am, apply, and Maintainer Flows: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Patch-Based and Email Workflows: format-patch,
+                am, apply, and Maintainer Flows: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Patch-Based and Email
+                Workflows: format-patch, am, apply, and Maintainer Flows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Bundles, Mirrors, Repository Migration, Archival,
+              and Offline Transfer
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Bundles, Mirrors, Repository Migration,
+                Archival, and Offline Transfer: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Bundles, Mirrors, Repository Migration,
+                Archival, and Offline Transfer: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Bundles, Mirrors, Repository Migration,
+                Archival, and Offline Transfer: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Bundles, Mirrors, Repository Migration,
+                Archival, and Offline Transfer: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Bundles, Mirrors, Repository
+                Migration, Archival, and Offline Transfer</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Git in CI/CD, Infrastructure as Code, Release
+              Automation, and GitOps
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Git in CI/CD, Infrastructure as Code, Release
+                Automation, and GitOps: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Git in CI/CD, Infrastructure as Code, Release
+                Automation, and GitOps: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Git in CI/CD, Infrastructure as Code, Release
+                Automation, and GitOps: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Git in CI/CD, Infrastructure as Code, Release
+                Automation, and GitOps: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Git in CI/CD, Infrastructure as
+                Code, Release Automation, and GitOps</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Production Capstone: Design, Secure, Scale, and
+              Recover a Governed Git Workflow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Production Capstone: Design, Secure, Scale, and
+                Recover a Governed Git Workflow: Requirements, Constraints, and
+                Target Architecture</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Production Capstone: Design, Secure, Scale, and
+                Recover a Governed Git Workflow: Implementation and Automation
+                Build-Out</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Production Capstone: Design, Secure, Scale, and
+                Recover a Governed Git Workflow: Security, Governance, and
+                Reliability Validation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Production Capstone: Design, Secure, Scale, and
+                Recover a Governed Git Workflow: Failure Injection,
+                Troubleshooting, and Recovery Drill</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Production Capstone: Design, Secure, Scale, and
+                Recover a Governed Git Workflow: Final Operational Review and
+                Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Git</a><span>/</span><span>Chapter 19</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 19</span><i></i><span>Lesson 05</span><i></i
+            ><span>~180 minutes</span>
+          </div>
+          <h1>
+            Checkpoint Lab — Refs, Reflogs, Packed Refs, Symbolic References,
+            and Reference Transactions
+          </h1>
+          <p>
+            Checkpoint safe reference automation by creating tool-owned refs,
+            moving them with expected-old guards, coordinating a multi-ref
+            transaction, inspecting reflogs, packing storage, and rejecting
+            stale writers.
+          </p>
+          <div class="lesson-tags">
+            <span>Checkpoint</span><span>CAS-style refs</span
+            ><span>Ref transaction</span><span>Reflog evidence</span>
+          </div>
+        </header>
+        <section class="lesson-objectives" id="objectives">
+          <p class="eyebrow">Learning objectives</p>
+          <ul>
+            <li>
+              Predict and verify guarded ref transitions using captured old
+              object IDs.
+            </li>
+            <li>Create explicit reflogs for custom automation refs.</li>
+            <li>
+              Commit two related guarded ref movements through one update-ref
+              transaction.
+            </li>
+            <li>
+              Prove pack-refs changes storage rather than logical ref values.
+            </li>
+            <li>
+              Simulate stale single-ref and multi-ref writers and respond by
+              re-reading/recomputing.
+            </li>
+          </ul>
+        </section>
+        <section id="scenario">
+          <h2>
+            1. Checkpoint scenario — release automation needs safe temporary
+            names
+          </h2>
+          <p>
+            You will create three known commits and two tool-owned refs. You
+            will predict/verify guarded movement, inspect reflogs, update both
+            refs transactionally, pack refs without changing their meaning, then
+            simulate a stale writer and prove that Git prevents it from
+            overwriting concurrent state.
+          </p>
+        </section>
+        <section id="predictions">
+          <h2>2. Predictions before running the lab</h2>
+          <ol>
+            <li>
+              If <code>refs/automation/candidate</code> is at A and you run a
+              guarded A → B update, what must be true before it succeeds?
+            </li>
+            <li>
+              If two refs are queued in one transaction and one expected old
+              value is wrong, should either requested new value be committed?
+            </li>
+            <li>
+              After <code>pack-refs --all</code>, should
+              <code>git rev-parse refs/automation/candidate</code> change?
+            </li>
+            <li>
+              If process 1 observed B, process 2 later moves the ref to C,
+              should process 1's B-based guarded update succeed?
+            </li>
+          </ol>
+        </section>
+        <section id="setup">
+          <h2>
+            3. Create an isolated repository and three deterministic commit
+            positions
+          </h2>
+          <h3>Git Bash, Bash, or zsh</h3>
+          <pre><code class="language-gitcli">mkdir git-ref-checkpoint
+cd git-ref-checkpoint
+git init -b trunk repo
+cd repo
+git config user.name "Ref Checkpoint"
+git config user.email "ref-checkpoint@example.invalid"
+
+printf "state=A\n" &gt; state.txt
+git add state.txt
+git commit -m "A: baseline"
+A=$(git rev-parse HEAD)
+
+printf "state=B\n" &gt; state.txt
+git commit -am "B: validated candidate"
+B=$(git rev-parse HEAD)
+
+printf "state=C\n" &gt; state.txt
+git commit -am "C: next candidate"
+C=$(git rev-parse HEAD)
+
+git log --oneline --decorate --graph</code></pre>
+          <h3>PowerShell</h3>
+          <pre><code class="language-powershell">New-Item -ItemType Directory git-ref-checkpoint | Out-Null
+Set-Location git-ref-checkpoint
+git init -b trunk repo
+Set-Location repo
+git config user.name "Ref Checkpoint"
+git config user.email "ref-checkpoint@example.invalid"
+
+Set-Content state.txt 'state=A'
+git add state.txt
+git commit -m "A: baseline"
+$A = git rev-parse HEAD
+
+Set-Content state.txt 'state=B'
+git commit -am "B: validated candidate"
+$B = git rev-parse HEAD
+
+Set-Content state.txt 'state=C'
+git commit -am "C: next candidate"
+$C = git rev-parse HEAD</code></pre>
+        </section>
+        <section id="preflight">
+          <h2>
+            4. Preflight repository identity, ref backend, and existing names
+          </h2>
+          <pre><code class="language-gitcli">git status --short --branch
+git rev-parse --absolute-git-dir
+git rev-parse --show-ref-format
+git show-ref --head
+git reflog list
+
+git show-ref --verify --quiet refs/automation/candidate
+echo "candidate exists exit=$?"
+git show-ref --verify --quiet refs/automation/verified
+echo "verified exists exit=$?"</code></pre>
+        </section>
+        <section id="create">
+          <h2>5. Create two tool-owned refs with explicit reflogs</h2>
+          <pre><code class="language-gitcli">git update-ref \
+  --create-reflog \
+  -m "checkpoint: create candidate at A" \
+  refs/automation/candidate "$A" ""
+
+git update-ref \
+  --create-reflog \
+  -m "checkpoint: create verified at A" \
+  refs/automation/verified "$A" ""
+
+git for-each-ref \
+  --format='%(refname) %(objectname)' \
+  refs/automation
+
+git reflog show refs/automation/candidate
+git reflog show refs/automation/verified</code></pre>
+          <p>
+            Both names should resolve to A and both should have a reflog because
+            the creation requested one explicitly.
+          </p>
+        </section>
+        <section id="prediction-one">
+          <h2>
+            6. Prediction 1 — candidate A → B succeeds only if candidate is
+            still A
+          </h2>
+          <pre><code class="language-gitcli">OBSERVED=$(git rev-parse refs/automation/candidate)
+test "$OBSERVED" = "$A"
+
+git update-ref \
+  -m "checkpoint: candidate A to B" \
+  refs/automation/candidate "$B" "$OBSERVED"
+
+git rev-parse refs/automation/candidate
+git reflog show -2 refs/automation/candidate</code></pre>
+          <p>
+            Verify that the new value is B and the reflog includes the reason.
+          </p>
+        </section>
+        <section id="transaction-pre">
+          <h2>7. Prepare a two-ref state transition</h2>
+          <p>
+            The intended logical transition is: candidate B → C and verified A →
+            B. Capture both actual old values first:
+          </p>
+          <pre><code class="language-gitcli">OLD_CANDIDATE=$(git rev-parse refs/automation/candidate)
+OLD_VERIFIED=$(git rev-parse refs/automation/verified)
+
+test "$OLD_CANDIDATE" = "$B"
+test "$OLD_VERIFIED" = "$A"</code></pre>
+        </section>
+        <section id="transaction">
+          <h2>
+            8. Prediction 2 — commit both guarded ref movements in one
+            transaction
+          </h2>
+          <h3>Git Bash, Bash, or zsh</h3>
+          <pre><code class="language-gitcli">{
+  echo start
+  echo "update refs/automation/candidate $C $OLD_CANDIDATE"
+  echo "update refs/automation/verified $B $OLD_VERIFIED"
+  echo prepare
+  echo commit
+} | git update-ref --stdin
+
+git for-each-ref \
+  --format='%(refname) %(objectname)' \
+  refs/automation</code></pre>
+          <h3>PowerShell</h3>
+          <pre><code class="language-powershell">@(
+  'start'
+  "update refs/automation/candidate $C $OLD_CANDIDATE"
+  "update refs/automation/verified $B $OLD_VERIFIED"
+  'prepare'
+  'commit'
+) | git update-ref --stdin
+
+git for-each-ref --format='%(refname) %(objectname)' refs/automation</code></pre>
+          <p>
+            <strong>Expected:</strong> candidate is C and verified is B. If
+            either old-value check had failed, the transaction would not have
+            committed the requested pair.
+          </p>
+        </section>
+        <section id="transaction-reflog">
+          <h2>9. Verify reflog evidence after the transaction</h2>
+          <pre><code class="language-bash language-gitcli">git reflog show -4 refs/automation/candidate
+git reflog show -4 refs/automation/verified
+git reflog exists refs/automation/candidate
+git reflog exists refs/automation/verified</code></pre>
+          <p>
+            The exact message generated for transaction-based updates can vary
+            by command/version context; the important evidence is the old/new
+            movement and continued reflog presence.
+          </p>
+        </section>
+        <section id="pack-preflight">
+          <h2>
+            10. Prediction 3 — packing changes storage, not logical ref values
+          </h2>
+          <pre><code class="language-gitcli">BEFORE_CANDIDATE=$(git rev-parse refs/automation/candidate)
+BEFORE_VERIFIED=$(git rev-parse refs/automation/verified)
+
+git rev-parse --show-ref-format
+git pack-refs --all
+
+AFTER_CANDIDATE=$(git rev-parse refs/automation/candidate)
+AFTER_VERIFIED=$(git rev-parse refs/automation/verified)
+
+test "$BEFORE_CANDIDATE" = "$AFTER_CANDIDATE"
+test "$BEFORE_VERIFIED" = "$AFTER_VERIFIED"
+
+git show-ref
+git for-each-ref --format='%(refname) %(objectname)' refs/automation</code></pre>
+          <p>
+            The tests prove logical identity survives the storage optimization.
+            Do not judge success by counting files under <code>.git/refs</code>.
+          </p>
+        </section>
+        <section id="stale-sim">
+          <h2>11. Prediction 4 — simulate process 1 becoming stale</h2>
+          <p>
+            Process 1 records candidate at C. Process 2 moves candidate C → A.
+            Process 1 then tries to move the candidate to B while still
+            expecting C.
+          </p>
+          <pre><code class="language-gitcli">PROCESS1_SEEN=$(git rev-parse refs/automation/candidate)
+test "$PROCESS1_SEEN" = "$C"
+
+git update-ref \
+  -m "process 2: C to A" \
+  refs/automation/candidate "$A" "$C"
+
+git update-ref \
+  -m "process 1: stale C to B" \
+  refs/automation/candidate "$B" "$PROCESS1_SEEN"
+echo "stale writer exit=$?"
+
+git rev-parse refs/automation/candidate
+git reflog show -4 refs/automation/candidate</code></pre>
+          <p>
+            <strong>Expected:</strong> process 1 fails and candidate remains A.
+            That refusal prevents a lost update.
+          </p>
+        </section>
+        <section id="recompute">
+          <h2>
+            12. Correct stale-writer handling — re-read, re-evaluate, then guard
+            again
+          </h2>
+          <p>
+            Suppose the application policy determines that moving A → B is still
+            valid after reviewing process 2's change:
+          </p>
+          <pre><code class="language-gitcli">NOW=$(git rev-parse refs/automation/candidate)
+test "$NOW" = "$A"
+
+git update-ref \
+  -m "checkpoint: recomputed transition A to B" \
+  refs/automation/candidate "$B" "$NOW"
+
+git rev-parse refs/automation/candidate</code></pre>
+          <p>
+            The key is the re-evaluation. A blind retry would defeat the purpose
+            of expected-old protection.
+          </p>
+        </section>
+        <section id="stale-transaction">
+          <h2>
+            13. Bonus failure — one stale expected value prevents a two-ref
+            transaction
+          </h2>
+          <p>
+            Capture the correct values, then deliberately supply a wrong old
+            value for <code>verified</code>:
+          </p>
+          <pre><code class="language-gitcli">CAND_BEFORE=$(git rev-parse refs/automation/candidate)
+VER_BEFORE=$(git rev-parse refs/automation/verified)
+
+{
+  echo start
+  echo "update refs/automation/candidate $C $CAND_BEFORE"
+  echo "update refs/automation/verified $C $A"
+  echo prepare
+  echo commit
+} | git update-ref --stdin
+echo "transaction exit=$?"
+
+git rev-parse refs/automation/candidate
+git rev-parse refs/automation/verified</code></pre>
+          <p>
+            Because verified is B rather than the deliberately expected A, the
+            transaction should fail; candidate must remain at its
+            pre-transaction value as well.
+          </p>
+        </section>
+        <section id="porcelain">
+          <h2>14. Verify object reachability through ordinary porcelain</h2>
+          <pre><code class="language-bash language-gitcli">git log --graph --decorate --oneline --all
+git show --stat refs/automation/candidate
+git show --stat refs/automation/verified
+git branch --contains "$A"
+git branch --contains "$B"</code></pre>
+          <p>
+            Tool-owned refs are ordinary Git refs even though branch porcelain
+            does not list them as local branches. They participate in object
+            reachability and revision resolution.
+          </p>
+        </section>
+        <section id="policy">
+          <h2>15. Write the operating policy this lab demonstrates</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Concern</th>
+                  <th>Checkpoint policy</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Namespace</td>
+                  <td>
+                    Tool-owned state lives under <code>refs/automation/*</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Single-ref concurrency</td>
+                  <td>Always use observed expected-old OID</td>
+                </tr>
+                <tr>
+                  <td>Multi-ref logical update</td>
+                  <td>Use update-ref transaction with expected values</td>
+                </tr>
+                <tr>
+                  <td>Recovery evidence</td>
+                  <td>
+                    Create reflogs explicitly for tool-owned refs and use
+                    meaningful reasons where supported
+                  </td>
+                </tr>
+                <tr>
+                  <td>Storage</td>
+                  <td>Never parse loose/packed storage as application state</td>
+                </tr>
+                <tr>
+                  <td>Stale writer</td>
+                  <td>
+                    Fail, re-read, recompute, then attempt a new guarded update
+                  </td>
+                </tr>
+                <tr>
+                  <td>Remote publication</td>
+                  <td>
+                    Use server capability/policy such as atomic push where
+                    required; verify support
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="verification">
+          <h2>16. Verification checklist</h2>
+          <ul>
+            <li>
+              Exactly three known commits A, B, C were created in a disposable
+              repository.
+            </li>
+            <li>
+              <code>candidate</code> and <code>verified</code> were created
+              under <code>refs/automation/</code> with explicit reflog requests.
+            </li>
+            <li>
+              Candidate A → B succeeded only after checking the observed A
+              value.
+            </li>
+            <li>
+              A two-ref transaction moved candidate B → C and verified A → B
+              together.
+            </li>
+            <li>Reflogs remained inspectable after the transaction.</li>
+            <li>
+              <code>pack-refs --all</code> did not change either logical OID.
+            </li>
+            <li>
+              A stale writer expecting C was rejected after another process
+              moved candidate to A.
+            </li>
+            <li>
+              The correct response was re-read/recompute/re-guard, not blind
+              overwrite.
+            </li>
+            <li>
+              A deliberately stale multi-ref transaction left both requested
+              changes uncommitted.
+            </li>
+            <li>No ref-storage file was manually edited in the checkpoint.</li>
+          </ul>
+        </section>
+        <section id="cleanup">
+          <h2>17. Cleanup</h2>
+          <div class="callout warning">
+            <strong
+              >Save any evidence you want to study, then confirm the disposable
+              parent path before deletion.</strong
+            >
+          </div>
+          <h3>Git Bash / Bash / zsh</h3>
+          <pre><code class="language-gitcli">cd ../..
+pwd
+rm -rf git-ref-checkpoint</code></pre>
+          <h3>PowerShell</h3>
+          <pre><code class="language-powershell">Set-Location ../..
+Get-Location
+Remove-Item -Recurse -Force git-ref-checkpoint</code></pre>
+        </section>
+        <section id="knowledge">
+          <h2>18. Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Question 1. Why did the first guarded A → B candidate update
+                succeed?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Because the actual ref still matched the observed expected old
+              value A.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Question 2. What does packing refs prove if the OIDs before and
+                after are identical?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              Only storage representation changed; the logical refs did not.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Question 3. Process 1's stale update fails after process 2
+                moved the ref. Is the failure evidence of corruption?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              No. It is the intended concurrency guard preventing a lost update.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Question 4. One old-value check in a multi-ref transaction is
+                wrong. What should happen?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              The transaction should not commit the requested set; verify all
+              involved refs afterward.
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Question 5. Why use explicit reflogs for custom automation
+                refs?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div hidden="">
+              It makes local movement evidence intentional rather than relying
+              on whether the namespace happens to receive automatic reflog
+              creation.
+            </div>
+          </div>
+        </section>
+        <section id="production">
+          <h2>19. What Chapter 19 adds to a production Git operating model</h2>
+          <p>
+            You can now treat refs as a concurrent naming database rather than
+            loose hash files. That means querying logical refs through Git,
+            separating symbolic names from direct object IDs, retaining local
+            movement evidence deliberately, using expected-old values to prevent
+            lost updates, coordinating multi-ref changes transactionally, and
+            keeping storage/backend details out of application logic.
+          </p>
+        </section>
+        <section id="summary">
+          <h2>20. Chapter checkpoint summary</h2>
+          <p>
+            Safe ref automation is optimistic concurrency control: observe the
+            current value, compute the intended transition, update only if the
+            observed value still holds, and fail closed when it does not.
+            Reflogs help explain prior local values, while ref transactions
+            coordinate several names. Neither mechanism replaces server
+            authorization or permanent audit systems.
+          </p>
+        </section>
+        <section id="next">
+          <div class="next-concepts">
+            <span>Next chapter</span>
+            <h3>
+              Merge Algorithms, Conflict Engineering, rerere, and Custom Merge
+              Drivers
+            </h3>
+            <p>
+              Chapter 20 returns to integration and studies how Git selects
+              merge bases, represents conflict stages, reuses resolutions with
+              rerere, and safely controls custom merge behavior.
+            </p>
+          </div>
+        </section>
+        <section id="references">
+          <h2>Authoritative references</h2>
+          <p>
+            <span class="reference-link-bullet" aria-hidden="true">•</span
+            >&nbsp;<a
+              href="https://git-scm.com/docs/git-update-ref"
+              rel="noopener"
+              target="_blank"
+              >git-update-ref</a
+            ><br /><span class="reference-link-bullet" aria-hidden="true"
+              >•</span
+            >&nbsp;<a
+              href="https://git-scm.com/docs/git-reflog"
+              rel="noopener"
+              target="_blank"
+              >git-reflog</a
+            ><br /><span class="reference-link-bullet" aria-hidden="true"
+              >•</span
+            >&nbsp;<a
+              href="https://git-scm.com/docs/git-pack-refs"
+              rel="noopener"
+              target="_blank"
+              >git-pack-refs</a
+            ><br /><span class="reference-link-bullet" aria-hidden="true"
+              >•</span
+            >&nbsp;<a
+              href="https://git-scm.com/docs/git-for-each-ref"
+              rel="noopener"
+              target="_blank"
+              >git-for-each-ref</a
+            ><br /><span class="reference-link-bullet" aria-hidden="true"
+              >•</span
+            >&nbsp;<a
+              href="https://git-scm.com/docs/git-push"
+              rel="noopener"
+              target="_blank"
+              >git-push</a
+            >
+          </p>
+        </section>
+        <nav aria-label="Lesson navigation" class="lesson-pagination">
+          <a href="Lesson4.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="../Chapter20/Lesson1.html">Next chapter</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  </body>
+</html>
