@@ -1,0 +1,2699 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Build a safe mental model for GitLab CI/CD variables, typed inputs, precedence, inheritance, masking, hidden/protected/file variables, expansion, external secret retrieval, and the runner trust boundary."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      CI/CD Variables, Inputs, Secrets, File Variables, Masking, Protection, and
+      Scope: Concepts, Architecture, and Mental Model | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="gitlab-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg></a
+          ><button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg></button
+          ><button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">GL</span>
+            <div>
+              <small>Course 06</small><strong>GitLab Complete Course</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 170 lessons..."
+            type="search"
+        /></label>
+        <nav aria-label="GitLab course curriculum" class="sidebar-curriculum">
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>GitLab Platform Foundations: GitLab.com,
+              Self-Managed, Dedicated, Tiers, and Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>GitLab Platform Foundations: GitLab.com,
+                Self-Managed, Dedicated, Tiers, and Architecture: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>GitLab Platform Foundations: GitLab.com,
+                Self-Managed, Dedicated, Tiers, and Architecture: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>GitLab Platform Foundations: GitLab.com,
+                Self-Managed, Dedicated, Tiers, and Architecture: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>GitLab Platform Foundations: GitLab.com,
+                Self-Managed, Dedicated, Tiers, and Architecture: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitLab Platform Foundations:
+                GitLab.com, Self-Managed, Dedicated, Tiers, and Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Accounts, Two-Factor Authentication, SSH Keys,
+              Access Tokens, Service Accounts, and Credentials
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Accounts, Two-Factor Authentication, SSH Keys,
+                Access Tokens, Service Accounts, and Credentials: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Accounts, Two-Factor Authentication, SSH Keys,
+                Access Tokens, Service Accounts, and Credentials: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Accounts, Two-Factor Authentication, SSH Keys,
+                Access Tokens, Service Accounts, and Credentials: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Accounts, Two-Factor Authentication, SSH Keys,
+                Access Tokens, Service Accounts, and Credentials: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Accounts, Two-Factor
+                Authentication, SSH Keys, Access Tokens, Service Accounts, and
+                Credentials</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Projects, Repository Settings, Visibility, Forks,
+              Protected Resources, and Project Templates
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Projects, Repository Settings, Visibility,
+                Forks, Protected Resources, and Project Templates: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Projects, Repository Settings, Visibility,
+                Forks, Protected Resources, and Project Templates: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Projects, Repository Settings, Visibility,
+                Forks, Protected Resources, and Project Templates:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Projects, Repository Settings, Visibility,
+                Forks, Protected Resources, and Project Templates: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Projects, Repository Settings,
+                Visibility, Forks, Protected Resources, and Project Templates</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Groups, Subgroups, Namespaces, Membership, Roles,
+              Custom Roles, and Access Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Groups, Subgroups, Namespaces, Membership,
+                Roles, Custom Roles, and Access Governance: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Groups, Subgroups, Namespaces, Membership,
+                Roles, Custom Roles, and Access Governance: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Groups, Subgroups, Namespaces, Membership,
+                Roles, Custom Roles, and Access Governance: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Groups, Subgroups, Namespaces, Membership,
+                Roles, Custom Roles, and Access Governance: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Groups, Subgroups, Namespaces,
+                Membership, Roles, Custom Roles, and Access Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Issues, Labels, Milestones, Iterations, Boards,
+              Epics, and Work Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Issues, Labels, Milestones, Iterations, Boards,
+                Epics, and Work Planning: Concepts, Architecture, and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Issues, Labels, Milestones, Iterations, Boards,
+                Epics, and Work Planning: Guided Hands-On Workflow and Core
+                Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Issues, Labels, Milestones, Iterations, Boards,
+                Epics, and Work Planning: Configuration, Design Choices, and
+                Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Issues, Labels, Milestones, Iterations, Boards,
+                Epics, and Work Planning: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Issues, Labels, Milestones,
+                Iterations, Boards, Epics, and Work Planning</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Wikis, Snippets, Discussions, Service Desk,
+              Notifications, and Collaboration Utilities
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Wikis, Snippets, Discussions, Service Desk,
+                Notifications, and Collaboration Utilities: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Wikis, Snippets, Discussions, Service Desk,
+                Notifications, and Collaboration Utilities: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Wikis, Snippets, Discussions, Service Desk,
+                Notifications, and Collaboration Utilities: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Wikis, Snippets, Discussions, Service Desk,
+                Notifications, and Collaboration Utilities: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Wikis, Snippets, Discussions,
+                Service Desk, Notifications, and Collaboration Utilities</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Merge Requests, Drafts, Review Threads,
+              Suggestions, and Change Collaboration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Merge Requests, Drafts, Review Threads,
+                Suggestions, and Change Collaboration: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Merge Requests, Drafts, Review Threads,
+                Suggestions, and Change Collaboration: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Merge Requests, Drafts, Review Threads,
+                Suggestions, and Change Collaboration: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Merge Requests, Drafts, Review Threads,
+                Suggestions, and Change Collaboration: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Merge Requests, Drafts, Review
+                Threads, Suggestions, and Change Collaboration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Approvals, CODEOWNERS, Protected Branches and Tags,
+              Push Rules, and Merge Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Approvals, CODEOWNERS, Protected Branches and
+                Tags, Push Rules, and Merge Governance: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Approvals, CODEOWNERS, Protected Branches and
+                Tags, Push Rules, and Merge Governance: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Approvals, CODEOWNERS, Protected Branches and
+                Tags, Push Rules, and Merge Governance: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Approvals, CODEOWNERS, Protected Branches and
+                Tags, Push Rules, and Merge Governance: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Approvals, CODEOWNERS,
+                Protected Branches and Tags, Push Rules, and Merge Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Merge Methods, Merge Trains, Mergeability Checks,
+              Conflict Resolution, and Integration Strategies
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Merge Methods, Merge Trains, Mergeability
+                Checks, Conflict Resolution, and Integration Strategies:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Merge Methods, Merge Trains, Mergeability
+                Checks, Conflict Resolution, and Integration Strategies: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Merge Methods, Merge Trains, Mergeability
+                Checks, Conflict Resolution, and Integration Strategies:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Merge Methods, Merge Trains, Mergeability
+                Checks, Conflict Resolution, and Integration Strategies:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Merge Methods, Merge Trains,
+                Mergeability Checks, Conflict Resolution, and Integration
+                Strategies</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>GitLab CI/CD Foundations: .gitlab-ci.yml,
+              Pipelines, Jobs, Stages, and Execution Model
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>GitLab CI/CD Foundations: .gitlab-ci.yml,
+                Pipelines, Jobs, Stages, and Execution Model: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>GitLab CI/CD Foundations: .gitlab-ci.yml,
+                Pipelines, Jobs, Stages, and Execution Model: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>GitLab CI/CD Foundations: .gitlab-ci.yml,
+                Pipelines, Jobs, Stages, and Execution Model: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>GitLab CI/CD Foundations: .gitlab-ci.yml,
+                Pipelines, Jobs, Stages, and Execution Model: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitLab CI/CD Foundations:
+                .gitlab-ci.yml, Pipelines, Jobs, Stages, and Execution Model</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>CI/CD YAML, Scripts, Images, Services,
+              before_script, after_script, and Defaults
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>CI/CD YAML, Scripts, Images, Services,
+                before_script, after_script, and Defaults: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>CI/CD YAML, Scripts, Images, Services,
+                before_script, after_script, and Defaults: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>CI/CD YAML, Scripts, Images, Services,
+                before_script, after_script, and Defaults: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>CI/CD YAML, Scripts, Images, Services,
+                before_script, after_script, and Defaults: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD YAML, Scripts, Images,
+                Services, before_script, after_script, and Defaults</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>rules, workflow, Pipeline Sources, Changes,
+              Conditions, and Dynamic Pipeline Creation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>rules, workflow, Pipeline Sources, Changes,
+                Conditions, and Dynamic Pipeline Creation: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>rules, workflow, Pipeline Sources, Changes,
+                Conditions, and Dynamic Pipeline Creation: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>rules, workflow, Pipeline Sources, Changes,
+                Conditions, and Dynamic Pipeline Creation: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>rules, workflow, Pipeline Sources, Changes,
+                Conditions, and Dynamic Pipeline Creation: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — rules, workflow, Pipeline
+                Sources, Changes, Conditions, and Dynamic Pipeline Creation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter is-current" open="">
+            <summary>
+              <span>13</span>CI/CD Variables, Inputs, Secrets, File Variables,
+              Masking, Protection, and Scope
+            </summary>
+            <div>
+              <a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="Lesson1.html"
+                ><span>01</span>CI/CD Variables, Inputs, Secrets, File
+                Variables, Masking, Protection, and Scope: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson2.html"
+                ><span>02</span>CI/CD Variables, Inputs, Secrets, File
+                Variables, Masking, Protection, and Scope: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson3.html"
+                ><span>03</span>CI/CD Variables, Inputs, Secrets, File
+                Variables, Masking, Protection, and Scope: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson4.html"
+                ><span>04</span>CI/CD Variables, Inputs, Secrets, File
+                Variables, Masking, Protection, and Scope: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Variables, Inputs,
+                Secrets, File Variables, Masking, Protection, and Scope</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>GitLab Runners, Executors, Tags, Registration,
+              Autoscaling, Isolation, and Security
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>GitLab Runners, Executors, Tags, Registration,
+                Autoscaling, Isolation, and Security: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>GitLab Runners, Executors, Tags, Registration,
+                Autoscaling, Isolation, and Security: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>GitLab Runners, Executors, Tags, Registration,
+                Autoscaling, Isolation, and Security: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>GitLab Runners, Executors, Tags, Registration,
+                Autoscaling, Isolation, and Security: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitLab Runners, Executors,
+                Tags, Registration, Autoscaling, Isolation, and Security</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>DAG Pipelines, needs, Parallel Jobs, Matrices,
+              Resource Groups, and Concurrency
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>DAG Pipelines, needs, Parallel Jobs, Matrices,
+                Resource Groups, and Concurrency: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>DAG Pipelines, needs, Parallel Jobs, Matrices,
+                Resource Groups, and Concurrency: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>DAG Pipelines, needs, Parallel Jobs, Matrices,
+                Resource Groups, and Concurrency: Configuration, Design Choices,
+                and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>DAG Pipelines, needs, Parallel Jobs, Matrices,
+                Resource Groups, and Concurrency: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — DAG Pipelines, needs, Parallel
+                Jobs, Matrices, Resource Groups, and Concurrency</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Artifacts, Reports, Cache, Dependencies, Retention,
+              and Data Flow Between Jobs
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Artifacts, Reports, Cache, Dependencies,
+                Retention, and Data Flow Between Jobs: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Artifacts, Reports, Cache, Dependencies,
+                Retention, and Data Flow Between Jobs: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Artifacts, Reports, Cache, Dependencies,
+                Retention, and Data Flow Between Jobs: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Artifacts, Reports, Cache, Dependencies,
+                Retention, and Data Flow Between Jobs: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifacts, Reports, Cache,
+                Dependencies, Retention, and Data Flow Between Jobs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Environments, Deployments, Review Apps, Protected
+              Environments, and Deployment Approvals
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Environments, Deployments, Review Apps,
+                Protected Environments, and Deployment Approvals: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Environments, Deployments, Review Apps,
+                Protected Environments, and Deployment Approvals: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Environments, Deployments, Review Apps,
+                Protected Environments, and Deployment Approvals: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Environments, Deployments, Review Apps,
+                Protected Environments, and Deployment Approvals: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Environments, Deployments,
+                Review Apps, Protected Environments, and Deployment Approvals</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Manual Jobs, Delayed Jobs, Scheduled Pipelines,
+              Rollbacks, Freeze Windows, and Release Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Manual Jobs, Delayed Jobs, Scheduled Pipelines,
+                Rollbacks, Freeze Windows, and Release Controls: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Manual Jobs, Delayed Jobs, Scheduled Pipelines,
+                Rollbacks, Freeze Windows, and Release Controls: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Manual Jobs, Delayed Jobs, Scheduled Pipelines,
+                Rollbacks, Freeze Windows, and Release Controls: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Manual Jobs, Delayed Jobs, Scheduled Pipelines,
+                Rollbacks, Freeze Windows, and Release Controls: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Manual Jobs, Delayed Jobs,
+                Scheduled Pipelines, Rollbacks, Freeze Windows, and Release
+                Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Parent-Child Pipelines, Multi-Project Pipelines,
+              Trigger Tokens, and Pipeline Composition
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Parent-Child Pipelines, Multi-Project Pipelines,
+                Trigger Tokens, and Pipeline Composition: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Parent-Child Pipelines, Multi-Project Pipelines,
+                Trigger Tokens, and Pipeline Composition: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Parent-Child Pipelines, Multi-Project Pipelines,
+                Trigger Tokens, and Pipeline Composition: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Parent-Child Pipelines, Multi-Project Pipelines,
+                Trigger Tokens, and Pipeline Composition: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Parent-Child Pipelines,
+                Multi-Project Pipelines, Trigger Tokens, and Pipeline
+                Composition</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Includes, Templates, CI/CD Components, Component
+              Catalog, and Reusable Pipeline Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Includes, Templates, CI/CD Components, Component
+                Catalog, and Reusable Pipeline Architecture: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Includes, Templates, CI/CD Components, Component
+                Catalog, and Reusable Pipeline Architecture: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Includes, Templates, CI/CD Components, Component
+                Catalog, and Reusable Pipeline Architecture: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Includes, Templates, CI/CD Components, Component
+                Catalog, and Reusable Pipeline Architecture: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Includes, Templates, CI/CD
+                Components, Component Catalog, and Reusable Pipeline
+                Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Pipeline Performance, Interruptible Jobs, Retry,
+              Failure Handling, Debugging, and Cost Control
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Pipeline Performance, Interruptible Jobs, Retry,
+                Failure Handling, Debugging, and Cost Control: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Pipeline Performance, Interruptible Jobs, Retry,
+                Failure Handling, Debugging, and Cost Control: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Pipeline Performance, Interruptible Jobs, Retry,
+                Failure Handling, Debugging, and Cost Control: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Pipeline Performance, Interruptible Jobs, Retry,
+                Failure Handling, Debugging, and Cost Control: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Performance,
+                Interruptible Jobs, Retry, Failure Handling, Debugging, and Cost
+                Control</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Package Registry, Dependency Proxy, Package
+              Formats, Permissions, and Artifact Distribution
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Package Registry, Dependency Proxy, Package
+                Formats, Permissions, and Artifact Distribution: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Package Registry, Dependency Proxy, Package
+                Formats, Permissions, and Artifact Distribution: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Package Registry, Dependency Proxy, Package
+                Formats, Permissions, and Artifact Distribution: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Package Registry, Dependency Proxy, Package
+                Formats, Permissions, and Artifact Distribution: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Package Registry, Dependency
+                Proxy, Package Formats, Permissions, and Artifact
+                Distribution</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Container Registry, OCI Images, Cleanup,
+              Authentication, Vulnerability Scanning, and Retention
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Container Registry, OCI Images, Cleanup,
+                Authentication, Vulnerability Scanning, and Retention: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Container Registry, OCI Images, Cleanup,
+                Authentication, Vulnerability Scanning, and Retention: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Container Registry, OCI Images, Cleanup,
+                Authentication, Vulnerability Scanning, and Retention:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Container Registry, OCI Images, Cleanup,
+                Authentication, Vulnerability Scanning, and Retention:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Container Registry, OCI Images,
+                Cleanup, Authentication, Vulnerability Scanning, and
+                Retention</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Releases, Tags, Release CLI, Evidence, Changelogs,
+              and Deployment Traceability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Releases, Tags, Release CLI, Evidence,
+                Changelogs, and Deployment Traceability: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Releases, Tags, Release CLI, Evidence,
+                Changelogs, and Deployment Traceability: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Releases, Tags, Release CLI, Evidence,
+                Changelogs, and Deployment Traceability: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Releases, Tags, Release CLI, Evidence,
+                Changelogs, and Deployment Traceability: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Releases, Tags, Release CLI,
+                Evidence, Changelogs, and Deployment Traceability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>SAST, Secret Detection, Dependency Scanning,
+              Container Scanning, DAST, and Coverage-Guided Security
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>SAST, Secret Detection, Dependency Scanning,
+                Container Scanning, DAST, and Coverage-Guided Security:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>SAST, Secret Detection, Dependency Scanning,
+                Container Scanning, DAST, and Coverage-Guided Security: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>SAST, Secret Detection, Dependency Scanning,
+                Container Scanning, DAST, and Coverage-Guided Security:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>SAST, Secret Detection, Dependency Scanning,
+                Container Scanning, DAST, and Coverage-Guided Security:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SAST, Secret Detection,
+                Dependency Scanning, Container Scanning, DAST, and
+                Coverage-Guided Security</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>SBOMs, Dependency Lists, Vulnerability Management,
+              Remediation, and Security Dashboards
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>SBOMs, Dependency Lists, Vulnerability
+                Management, Remediation, and Security Dashboards: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>SBOMs, Dependency Lists, Vulnerability
+                Management, Remediation, and Security Dashboards: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>SBOMs, Dependency Lists, Vulnerability
+                Management, Remediation, and Security Dashboards: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>SBOMs, Dependency Lists, Vulnerability
+                Management, Remediation, and Security Dashboards: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SBOMs, Dependency Lists,
+                Vulnerability Management, Remediation, and Security
+                Dashboards</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Security Policies, Scan Execution, Pipeline
+              Execution, Approval Policies, and Compliance Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Security Policies, Scan Execution, Pipeline
+                Execution, Approval Policies, and Compliance Controls: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Security Policies, Scan Execution, Pipeline
+                Execution, Approval Policies, and Compliance Controls: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Security Policies, Scan Execution, Pipeline
+                Execution, Approval Policies, and Compliance Controls:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Security Policies, Scan Execution, Pipeline
+                Execution, Approval Policies, and Compliance Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Security Policies, Scan
+                Execution, Pipeline Execution, Approval Policies, and Compliance
+                Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Kubernetes Agent, GitOps Workflows, Cluster Access,
+              Environments, and Deployment Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Kubernetes Agent, GitOps Workflows, Cluster
+                Access, Environments, and Deployment Integration: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Kubernetes Agent, GitOps Workflows, Cluster
+                Access, Environments, and Deployment Integration: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Kubernetes Agent, GitOps Workflows, Cluster
+                Access, Environments, and Deployment Integration: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Kubernetes Agent, GitOps Workflows, Cluster
+                Access, Environments, and Deployment Integration: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Kubernetes Agent, GitOps
+                Workflows, Cluster Access, Environments, and Deployment
+                Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>REST API, GraphQL API, Webhooks, System Hooks,
+              Pagination, Rate Limits, and Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>REST API, GraphQL API, Webhooks, System Hooks,
+                Pagination, Rate Limits, and Automation: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>REST API, GraphQL API, Webhooks, System Hooks,
+                Pagination, Rate Limits, and Automation: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>REST API, GraphQL API, Webhooks, System Hooks,
+                Pagination, Rate Limits, and Automation: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>REST API, GraphQL API, Webhooks, System Hooks,
+                Pagination, Rate Limits, and Automation: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — REST API, GraphQL API,
+                Webhooks, System Hooks, Pagination, Rate Limits, and
+                Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Self-Managed Administration: Configuration, Email,
+              Object Storage, Backups, Restore, and Maintenance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Self-Managed Administration: Configuration,
+                Email, Object Storage, Backups, Restore, and Maintenance:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Self-Managed Administration: Configuration,
+                Email, Object Storage, Backups, Restore, and Maintenance: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Self-Managed Administration: Configuration,
+                Email, Object Storage, Backups, Restore, and Maintenance:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Self-Managed Administration: Configuration,
+                Email, Object Storage, Backups, Restore, and Maintenance:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Self-Managed Administration:
+                Configuration, Email, Object Storage, Backups, Restore, and
+                Maintenance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Upgrades, Zero-Downtime Planning, High
+              Availability, Geo, Disaster Recovery, and Capacity
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Upgrades, Zero-Downtime Planning, High
+                Availability, Geo, Disaster Recovery, and Capacity: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Upgrades, Zero-Downtime Planning, High
+                Availability, Geo, Disaster Recovery, and Capacity: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Upgrades, Zero-Downtime Planning, High
+                Availability, Geo, Disaster Recovery, and Capacity:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Upgrades, Zero-Downtime Planning, High
+                Availability, Geo, Disaster Recovery, and Capacity: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Upgrades, Zero-Downtime
+                Planning, High Availability, Geo, Disaster Recovery, and
+                Capacity</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>32</span>Audit Events, Logs, Metrics, Prometheus
+              Integration, Troubleshooting, and Operational Diagnostics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson1.html"
+                ><span>01</span>Audit Events, Logs, Metrics, Prometheus
+                Integration, Troubleshooting, and Operational Diagnostics:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson2.html"
+                ><span>02</span>Audit Events, Logs, Metrics, Prometheus
+                Integration, Troubleshooting, and Operational Diagnostics:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson3.html"
+                ><span>03</span>Audit Events, Logs, Metrics, Prometheus
+                Integration, Troubleshooting, and Operational Diagnostics:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson4.html"
+                ><span>04</span>Audit Events, Logs, Metrics, Prometheus
+                Integration, Troubleshooting, and Operational Diagnostics:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Audit Events, Logs, Metrics,
+                Prometheus Integration, Troubleshooting, and Operational
+                Diagnostics</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>33</span>GitLab Duo and Agentic DevSecOps: AI Features,
+              Security Remediation, Governance, and Usage Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson1.html"
+                ><span>01</span>GitLab Duo and Agentic DevSecOps: AI Features,
+                Security Remediation, Governance, and Usage Controls: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson2.html"
+                ><span>02</span>GitLab Duo and Agentic DevSecOps: AI Features,
+                Security Remediation, Governance, and Usage Controls: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson3.html"
+                ><span>03</span>GitLab Duo and Agentic DevSecOps: AI Features,
+                Security Remediation, Governance, and Usage Controls:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson4.html"
+                ><span>04</span>GitLab Duo and Agentic DevSecOps: AI Features,
+                Security Remediation, Governance, and Usage Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitLab Duo and Agentic
+                DevSecOps: AI Features, Security Remediation, Governance, and
+                Usage Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>34</span>Production Capstone: Build and Govern a Secure
+              GitLab Software Delivery Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson1.html"
+                ><span>01</span>Production Capstone: Build and Govern a Secure
+                GitLab Software Delivery Platform: Requirements, Constraints,
+                and Target Architecture</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson2.html"
+                ><span>02</span>Production Capstone: Build and Govern a Secure
+                GitLab Software Delivery Platform: Implementation and Automation
+                Build-Out</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson3.html"
+                ><span>03</span>Production Capstone: Build and Govern a Secure
+                GitLab Software Delivery Platform: Security, Governance, and
+                Reliability Validation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson4.html"
+                ><span>04</span>Production Capstone: Build and Govern a Secure
+                GitLab Software Delivery Platform: Failure Injection,
+                Troubleshooting, and Recovery Drill</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson5.html"
+                ><span>05</span>Production Capstone: Build and Govern a Secure
+                GitLab Software Delivery Platform: Final Operational Review and
+                Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">GitLab</a><span>/</span
+          ><span>Chapter 13</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 13</span><i></i><span>Lesson 01</span><i></i
+            ><span>~220 minutes</span>
+          </div>
+          <h1>
+            CI/CD Variables, Inputs, Secrets, File Variables, Masking,
+            Protection, and Scope: Concepts, Architecture, and Mental Model
+          </h1>
+          <p>
+            Build a safe mental model for GitLab CI/CD variables, typed inputs,
+            precedence, inheritance, masking, hidden/protected/file variables,
+            expansion, external secret retrieval, and the runner trust boundary.
+          </p>
+          <div class="lesson-tags">
+            <span>CI/CD variables</span><span>Inputs</span
+            ><span>Precedence</span><span>Masking</span><span>Protection</span
+            ><span>File variables</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Distinguish runtime CI/CD variables from typed configuration
+              inputs and explain when each is appropriate.
+            </li>
+            <li>
+              Reason about project, group, instance, YAML, pipeline, dotenv,
+              deployment, and predefined variable precedence without guessing.
+            </li>
+            <li>
+              Explain masked, hidden, protected, environment-scoped, and file
+              variables as separate controls with separate failure modes.
+            </li>
+            <li>
+              Explain why masking is a log-redaction aid rather than a complete
+              secret-management boundary.
+            </li>
+            <li>
+              Describe how OIDC/ID-token based retrieval can reduce dependence
+              on long-lived stored credentials.
+            </li>
+          </ul>
+        </section>
+        <div class="callout">
+          <strong
+            >Availability baseline (verified 2026-08-21; GitLab 19.3 is the
+            latest monthly release, released 2026-08-20).</strong
+          >
+          Project and group CI/CD variables, masking, hiding, protection, file
+          variables, pipeline inputs, predefined variables, and OIDC ID tokens
+          are available on Free/Premium/Ultimate across GitLab.com,
+          Self-Managed, and Dedicated unless a narrower note is stated. Instance
+          variables are Self-Managed/Dedicated administrator scope.
+          <strong>Group-variable environment scoping</strong> is
+          Premium/Ultimate. GitLab's built-in external-secret provider
+          integrations are Premium/Ultimate, while the underlying ID-token/OIDC
+          mechanism is Free. The mandatory chapter path uses only a disposable
+          project, synthetic values, and a no-paid validation/fixture fallback.
+        </div>
+        <section id="problem">
+          <h2>
+            1. The problem: a correct job can still receive the wrong data
+          </h2>
+          <p>
+            Chapters 10–12 established when a pipeline exists, which jobs exist,
+            and how those jobs execute. Chapter 13 asks the next security
+            question:
+            <strong
+              >what configuration and credentials does each job receive, from
+              where, and under whose authority?</strong
+            >
+          </p>
+          <p>
+            A variable name such as <code>DEPLOY_TARGET</code> looks simple, but
+            its effective value can come from several layers. A credential can
+            be masked yet still be available to malicious pipeline code. A
+            protected value can disappear on an unprotected ref by design. A
+            file variable is not the secret text itself—it is a path to a
+            temporary file. These distinctions are part of the execution model.
+          </p>
+        </section>
+        <section id="mental-model">
+          <h2>
+            2. Mental model: configuration contract → resolved values → runner
+            environment
+          </h2>
+          <div class="diagram-card">
+            <div class="diagram-label">Data and trust flow</div>
+            <pre class="mermaid">
+flowchart TD
+  I[Pipeline/component inputs] --&gt; C[Configuration creation]
+  Y[.gitlab-ci.yml variables] --&gt; R[Variable resolution]
+  G[Group / subgroup variables] --&gt; R
+  P[Project variables] --&gt; R
+  X[Pipeline variables / policy variables] --&gt; R
+  R --&gt; A{Ref / environment / protection filters}
+  A --&gt; J[Job variable set]
+  J --&gt; U[Runner execution environment]
+  S[External secret provider] --&gt;|explicit job request / OIDC| U
+  U --&gt; L[Logs / commands / artifacts]
+</pre
+            >
+            <p>
+              Inputs primarily shape configuration at pipeline creation.
+              Variables become runtime values for jobs. GitLab resolves
+              competing variable definitions according to precedence, then
+              applies scoping/protection rules. The runner finally exposes the
+              permitted values to the job. External secrets are different again:
+              the job explicitly requests them, ideally through a short-lived
+              identity token.
+            </p>
+          </div>
+        </section>
+        <section id="inputs-vs-vars">
+          <h2>3. Inputs and variables solve different problems</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mechanism</th>
+                  <th>Primary purpose</th>
+                  <th>When evaluated / used</th>
+                  <th>Security posture</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>spec:inputs</code> / pipeline inputs</td>
+                  <td>Typed, validated configuration parameters.</td>
+                  <td>
+                    Interpolated when GitLab creates/fetches configuration.
+                  </td>
+                  <td>
+                    Prefer for user-selectable pipeline configuration;
+                    options/regex/type create an explicit contract.
+                  </td>
+                </tr>
+                <tr>
+                  <td>YAML <code>variables</code></td>
+                  <td>
+                    Non-sensitive runtime configuration declared with code.
+                  </td>
+                  <td>Made available to jobs, subject to precedence.</td>
+                  <td>Repository-readable; do not store secrets here.</td>
+                </tr>
+                <tr>
+                  <td>Project/group/instance variables</td>
+                  <td>
+                    Runtime configuration or, when unavoidable, protected
+                    secret-like values.
+                  </td>
+                  <td>Resolved into eligible jobs.</td>
+                  <td>
+                    Can be masked/hidden/protected/file type; still exposed to
+                    pipeline code that receives them.
+                  </td>
+                </tr>
+                <tr>
+                  <td>External secret retrieval</td>
+                  <td>Fetch sensitive data only when a job needs it.</td>
+                  <td>
+                    Explicit job request, often after OIDC authentication.
+                  </td>
+                  <td>
+                    Better separation and shorter-lived identity; provider
+                    policy remains critical.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            GitLab recommends pipeline inputs over ad-hoc pipeline variables for
+            parameters supplied when a pipeline starts. Inputs support types,
+            defaults, allowed options, regex validation, and a visible contract.
+            They are not a vault and must not be used as a place to type secrets
+            into source-controlled configuration.
+          </p>
+        </section>
+        <section id="precedence">
+          <h2>4. Variable precedence: “closest in YAML” is not the rule</h2>
+          <p>
+            When the same key exists in multiple places, GitLab uses a defined
+            precedence order. The important operational habit is to trace the
+            key through every possible source before editing anything.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Higher → lower precedence</th>
+                  <th>Typical source</th>
+                  <th>Governance implication</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>1</td>
+                  <td>Pipeline execution policy variables</td>
+                  <td>
+                    Security policy can intentionally dominate ordinary project
+                    configuration.
+                  </td>
+                </tr>
+                <tr>
+                  <td>2</td>
+                  <td>Scan execution policy variables</td>
+                  <td>Security orchestration may override lower sources.</td>
+                </tr>
+                <tr>
+                  <td>3</td>
+                  <td>
+                    Pipeline variables:
+                    manual/API/trigger/schedule/downstream/manual-job
+                  </td>
+                  <td>
+                    Powerful because they override project/group/YAML values;
+                    restrict who may set them.
+                  </td>
+                </tr>
+                <tr>
+                  <td>4</td>
+                  <td>Project variables</td>
+                  <td>
+                    Override inherited group and YAML job/default variables.
+                  </td>
+                </tr>
+                <tr>
+                  <td>5</td>
+                  <td>Group/subgroup variables</td>
+                  <td>
+                    Closest subgroup wins among group levels; still overrides
+                    YAML job/default values.
+                  </td>
+                </tr>
+                <tr>
+                  <td>6</td>
+                  <td>Instance variables</td>
+                  <td>
+                    Self-Managed/Dedicated administrator-defined defaults.
+                  </td>
+                </tr>
+                <tr>
+                  <td>7</td>
+                  <td>Dotenv report variables</td>
+                  <td>Values imported from a prior job report.</td>
+                </tr>
+                <tr>
+                  <td>8</td>
+                  <td>Job variables in YAML</td>
+                  <td>
+                    Override top-level YAML defaults, but not project/group
+                    variables.
+                  </td>
+                </tr>
+                <tr>
+                  <td>9</td>
+                  <td>Top-level YAML default variables</td>
+                  <td>Repository-defined defaults for jobs.</td>
+                </tr>
+                <tr>
+                  <td>10</td>
+                  <td>Deployment variables</td>
+                  <td>Environment/deployment-provided values.</td>
+                </tr>
+                <tr>
+                  <td>11</td>
+                  <td>Predefined variables</td>
+                  <td>
+                    GitLab-provided context such as project, SHA, pipeline, and
+                    job identifiers.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Example: if <code>CH13_MODE</code> is <code>job</code> in a job,
+            <code>group</code> at the parent group, and <code>project</code> in
+            project settings, the effective value is <code>project</code>. If
+            the project value is removed, the group value beats the YAML job
+            value.
+          </p>
+        </section>
+        <section id="inheritance">
+          <h2>5. Inheritance is convenient—and expands blast radius</h2>
+          <p>
+            Project variables affect one project. Group variables are inherited
+            by projects in the group, and subgroup variables recursively
+            participate in the same model. If the same key exists at multiple
+            group depths, the closest subgroup value wins. This makes
+            centralized configuration easy, but a broad group secret can become
+            available to far more pipeline code than its owner intended.
+          </p>
+          <p>
+            Instance variables are an administrator surface for
+            Self-Managed/Dedicated and can affect all projects/groups on that
+            instance. Treat them as platform configuration, not as a substitute
+            for project-specific secret governance.
+          </p>
+        </section>
+        <section id="properties">
+          <h2>
+            6. Masked, hidden, protected, environment-scoped, and file are
+            orthogonal properties
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Property</th>
+                  <th>What it controls</th>
+                  <th>What it does NOT guarantee</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Masked</strong></td>
+                  <td>
+                    Redacts exact matching values in ordinary job trace output
+                    as <code>[MASKED]</code>.
+                  </td>
+                  <td>
+                    Does not stop malicious code from transmitting the value
+                    elsewhere; transformed output can defeat masking.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Hidden</strong></td>
+                  <td>
+                    Prevents the saved value from being revealed again in the
+                    settings UI. Current hidden values must satisfy masking
+                    rules.
+                  </td>
+                  <td>Does not stop eligible jobs from receiving the value.</td>
+                </tr>
+                <tr>
+                  <td><strong>Protected</strong></td>
+                  <td>
+                    Restricts availability to pipelines on protected
+                    branches/tags, with MR nuances controlled by project
+                    settings.
+                  </td>
+                  <td>
+                    Does not make the value safe if protected pipeline code or
+                    runner is compromised.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>Environment scope</strong></td>
+                  <td>
+                    Restricts a variable to jobs targeting matching
+                    environments.
+                  </td>
+                  <td>
+                    Does not replace protected refs or runner isolation; and
+                    group-variable environment scope is Premium/Ultimate.
+                  </td>
+                </tr>
+                <tr>
+                  <td><strong>File</strong></td>
+                  <td>
+                    Writes the value to a temporary file and makes the
+                    environment variable contain the file path.
+                  </td>
+                  <td>
+                    Does not make the file automatically non-readable by the
+                    job; job code that receives the path can read it.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <div class="callout warning">
+          <strong>Security rule:</strong> masking is a logging convenience, not
+          a secret-management guarantee. GitLab explicitly warns that malicious
+          pipeline code can exfiltrate values even when they are masked or
+          protected. Review CI changes before running them with sensitive
+          variables.
+        </div>
+        <section id="file-vars">
+          <h2>7. File variables: the variable contains a path</h2>
+          <p>
+            For a normal variable <code>CH13_CONFIG</code>, the environment
+            variable contains the configured value. For a file variable, GitLab
+            Runner writes the configured value into a temporary file and sets
+            <code>CH13_CONFIG</code> to the path of that file.
+          </p>
+          <pre><code class="language-bash"># Safe pattern: inspect file semantics without printing its content.
+test -f "$CH13_CONFIG"
+printf 'file_present=yes\n'
+printf 'file_bytes=%s\n' "$(wc -c &lt; "$CH13_CONFIG")"
+# A tool that expects a path can consume "$CH13_CONFIG" directly.</code></pre>
+          <p>
+            This is useful for synthetic certificates, configuration files, and
+            tools that require <code>--certificate-authority=/path</code>-style
+            arguments. The temporary file exists within the job execution
+            context; do not copy it into artifacts or caches unless that is an
+            explicit, safe design.
+          </p>
+        </section>
+        <section id="expansion">
+          <h2>
+            8. Expansion and predefined variables: syntax is not a security
+            boundary
+          </h2>
+          <p>
+            GitLab makes predefined variables such as
+            <code>CI_COMMIT_SHA</code>, <code>CI_PIPELINE_ID</code>, and
+            <code>CI_PROJECT_ID</code> available automatically. Avoid overriding
+            predefined keys: higher-precedence pipeline variables can
+            technically replace many lower-precedence values and make pipeline
+            behavior difficult to reason about.
+          </p>
+          <p>
+            UI-defined variable expansion is disabled by default in current
+            GitLab. Expansion must be intentionally enabled, and masked/hidden
+            values cannot use variable-reference expansion. Keep secret values
+            raw whenever possible and let the application consume them directly.
+          </p>
+        </section>
+        <section id="pipeline-vars">
+          <h2>
+            9. Pipeline variables are powerful; inputs are the safer parameter
+            surface
+          </h2>
+          <p>
+            Pipeline variables supplied through manual runs, schedules, APIs,
+            triggers, or downstream forwarding have high precedence. GitLab lets
+            projects restrict the minimum role allowed to supply them, including
+            <code>no_one_allowed</code>. For new GitLab.com projects in new
+            namespaces, the secure default may prohibit pipeline variables
+            entirely.
+          </p>
+          <p>
+            When a pipeline needs operator-selectable parameters, define typed
+            inputs instead. Use pipeline variables only when their runtime
+            mutability and precedence are actually required.
+          </p>
+        </section>
+        <section id="external">
+          <h2>10. External secrets and identity-based retrieval</h2>
+          <p>
+            Long-lived credentials stored in GitLab variables can be acceptable
+            for small labs, but production designs should prefer a secret
+            manager when the environment supports one. GitLab supports OIDC ID
+            tokens on Free across offerings. A job can present a narrowly scoped
+            ID token to a cloud or secret provider and receive a short-lived
+            credential without storing that credential in GitLab.
+          </p>
+          <p>
+            GitLab's built-in <code>secrets</code> integrations for providers
+            such as HashiCorp Vault, Google Cloud Secret Manager, Azure Key
+            Vault, and AWS Secrets Manager are Premium/Ultimate. The mandatory
+            course path therefore teaches the architecture and claims/policy
+            model without requiring a paid provider integration.
+          </p>
+          <pre><code class="language-yaml"># Architecture fixture only — no real external provider is required.
+job:
+  id_tokens:
+    VAULT_ID_TOKEN:
+      aud: https://vault.example.invalid
+  script:
+    - echo "OIDC token exists for provider authentication; do not print it"</code></pre>
+        </section>
+        <section id="inspect">
+          <h2>11. Read-only inspection before changing anything</h2>
+          <ul>
+            <li>Record GitLab offering/version and your project role.</li>
+            <li>
+              Inspect <strong>Settings → CI/CD → Variables</strong> for keys,
+              type, protected/visibility status, and environment scope. Do not
+              reveal values.
+            </li>
+            <li>
+              Inspect group inheritance indicators before adding a same-name
+              project key.
+            </li>
+            <li>
+              Search <code>.gitlab-ci.yml</code> and included configuration for
+              the variable key, input definition, and any
+              <code>variables:</code> block.
+            </li>
+            <li>
+              Inspect the target ref's protection state before diagnosing a
+              missing protected variable.
+            </li>
+            <li>
+              Inspect runner trust and pipeline source before assuming a
+              variable should be exposed.
+            </li>
+            <li>
+              Never run <code>env</code>, <code>printenv</code>,
+              <code>export</code>, or debug trace in a job that might receive
+              real secrets.
+            </li>
+          </ul>
+        </section>
+        <section id="devops">
+          <h2>12. DevOps connection: variable delivery is authorization</h2>
+          <p>
+            Secret safety is determined by the intersection of repository write
+            permission, ref protection, pipeline source, variable scope, runner
+            isolation, and external-provider policy. A masked variable available
+            to unreviewed code is still a credential available to that code. A
+            well-designed pipeline minimizes not only who can view a value in
+            the UI, but also which jobs ever receive it.
+          </p>
+        </section>
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A project variable and a YAML job variable share the same key.
+                Which one wins?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                The project variable. Project variables have higher precedence
+                than job-level YAML variables.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Does masking prevent malicious pipeline code from using a
+                secret?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. Masking only redacts matching output in normal logs.
+                Eligible job code still receives the value and can misuse or
+                exfiltrate it.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What does a file-type variable contain inside the job
+                environment?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                A path to a temporary file whose contents are the configured
+                variable value.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why prefer pipeline inputs for operator-selected
+                configuration?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Inputs define a typed, validated configuration contract at
+                pipeline creation and avoid the high-precedence, loosely typed
+                behavior of pipeline variables.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What is the key difference between protected and
+                environment-scoped variables?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Protected checks the ref protection boundary; environment scope
+                checks which environment a job targets. They solve different
+                authorization problems.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p><strong>Why are OIDC ID tokens useful for secrets?</strong></p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                They let a job prove identity to an external provider and obtain
+                short-lived credentials instead of storing long-lived
+                credentials in GitLab.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>Summary</h2>
+          <p>
+            GitLab variable safety is a resolution-and-authorization problem:
+            choose the right mechanism, understand precedence, scope each value,
+            protect the refs that receive it, isolate the runner, and prefer
+            explicit short-lived secret retrieval when possible. Masking and
+            hiding improve exposure resistance, but neither substitutes for
+            trusted pipeline code.
+          </p>
+        </section>
+        <section id="references">
+          <h2>Official references</h2>
+          <ul>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/variables/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — CI/CD variables</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/inputs/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — CI/CD inputs</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/pipeline_security/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Pipeline security</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/secrets/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — External secrets in CI/CD</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/secrets/id_token_authentication/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — OIDC authentication using ID tokens</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/cloud_services/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Connect to cloud services with OIDC</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/api/project_level_variables/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Project-level CI/CD Variables API</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/api/group_level_variables/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Group-level Variables API</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/variables/predefined_variables/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Predefined CI/CD variables</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/variables/where_variables_can_be_used/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — Where variables can be used</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/ci/yaml/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — CI/CD YAML syntax reference</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/cli/variable/"
+                rel="noopener"
+                target="_blank"
+                >GitLab CLI — variable commands</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/cli/variable/set/"
+                rel="noopener"
+                target="_blank"
+                >GitLab CLI — variable set</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/cli/variable/delete/"
+                rel="noopener"
+                target="_blank"
+                >GitLab CLI — variable delete</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://about.gitlab.com/whats-new/19-3/"
+                rel="noopener"
+                target="_blank"
+                >GitLab 19.3 — latest monthly release</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/administration/secrets_manager/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Docs — GitLab Secrets Manager (Self-Managed)</a
+              >
+            </li>
+          </ul>
+        </section>
+        <section class="next-concepts">
+          <span>Next lesson</span>
+          <h3>Prove the model with only synthetic values</h3>
+          <p>
+            Lesson 2 creates a disposable variable matrix, demonstrates
+            project-over-YAML precedence, validates a file variable without
+            printing it, and compares protected and unprotected refs using
+            presence-only evidence.
+          </p>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="../Chapter12/Lesson5.html">Previous chapter</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson2.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              ><a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              ><a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              ><a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              ><a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            ><button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span></button
+            ><small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  </body>
+</html>
