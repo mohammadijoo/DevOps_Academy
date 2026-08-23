@@ -47,24 +47,51 @@
     currentSidebarLesson?.closest(".sidebar-chapter");
 
   const alignCurrentSidebarChapter = ({ smooth = false } = {}) => {
-    if (!sidebarCurriculum || !currentSidebarChapter) return;
+  if (!sidebarCurriculum || !currentSidebarChapter) return;
 
-    currentSidebarChapter.open = true;
-    currentSidebarLesson?.setAttribute("aria-current", "page");
+  currentSidebarChapter.open = true;
+  currentSidebarLesson?.setAttribute("aria-current", "page");
 
-    requestAnimationFrame(() => {
-      const curriculumRect = sidebarCurriculum.getBoundingClientRect();
-      const chapterRect = currentSidebarChapter.getBoundingClientRect();
+  requestAnimationFrame(() => {
+    const curriculumRect = sidebarCurriculum.getBoundingClientRect();
+    const chapterRect = currentSidebarChapter.getBoundingClientRect();
+    const lessonRect = currentSidebarLesson?.getBoundingClientRect();
 
-      const target =
-        sidebarCurriculum.scrollTop + chapterRect.top - curriculumRect.top;
+    // Normal behavior:
+    // keep the beginning of the active chapter at the top.
+    let target =
+      sidebarCurriculum.scrollTop +
+      chapterRect.top -
+      curriculumRect.top;
 
-      sidebarCurriculum.scrollTo({
-        top: Math.max(0, target),
-        behavior: smooth ? "smooth" : "auto",
-      });
+    if (lessonRect) {
+      /*
+       * Determine where the bottom of the current lesson would appear
+       * if the chapter were aligned to the top.
+       */
+      const lessonBottomInsideChapter =
+        lessonRect.bottom - chapterRect.top;
+
+      /*
+       * If the active lesson would extend below the visible sidebar,
+       * scroll only enough to keep that lesson at the bottom.
+       *
+       * This is especially important for Lesson 4 / Lesson 5 when
+       * lesson titles wrap across several lines.
+       */
+      if (lessonBottomInsideChapter > sidebarCurriculum.clientHeight) {
+        target +=
+          lessonBottomInsideChapter -
+          sidebarCurriculum.clientHeight;
+      }
+    }
+
+    sidebarCurriculum.scrollTo({
+      top: Math.max(0, target),
+      behavior: smooth ? "smooth" : "auto",
     });
-  };
+  });
+};
 
   const openSidebar = () => {
     sidebar?.classList.add("is-open");
