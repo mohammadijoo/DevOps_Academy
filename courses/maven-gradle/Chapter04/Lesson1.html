@@ -1,0 +1,2452 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Build a beginner-first mental model of Apache Maven runtime, Maven Wrapper, settings precedence, local repository state, project bootstrap, and the trust boundaries between them."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Apache Maven Installation, Wrapper, Settings, Local Repository, and
+      Project Bootstrap: Concepts, Architecture, and Mental Model | DevOps
+      Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/kotlin.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="maven-gradle-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg
+          ></a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">MVN</span>
+            <div>
+              <small>Course 07</small
+              ><strong>Maven &amp; Gradle Complete Course</strong>
+            </div></a
+          >
+          <button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 155 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="Maven &amp; Gradle course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Build Automation Foundations, Reproducibility,
+              Build Graphs, and the JVM Toolchain Ecosystem
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Build Automation Foundations, Reproducibility,
+                Build Graphs, and the JVM Toolchain Ecosystem: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Build Automation Foundations, Reproducibility,
+                Build Graphs, and the JVM Toolchain Ecosystem: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Build Automation Foundations, Reproducibility,
+                Build Graphs, and the JVM Toolchain Ecosystem: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Build Automation Foundations, Reproducibility,
+                Build Graphs, and the JVM Toolchain Ecosystem: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Build Automation Foundations,
+                Reproducibility, Build Graphs, and the JVM Toolchain
+                Ecosystem</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Java and JVM Project Structure, Source Sets,
+              Compilation, Testing, Packaging, and Toolchains
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Java and JVM Project Structure, Source Sets,
+                Compilation, Testing, Packaging, and Toolchains: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Java and JVM Project Structure, Source Sets,
+                Compilation, Testing, Packaging, and Toolchains: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Java and JVM Project Structure, Source Sets,
+                Compilation, Testing, Packaging, and Toolchains: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Java and JVM Project Structure, Source Sets,
+                Compilation, Testing, Packaging, and Toolchains: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Java and JVM Project Structure,
+                Source Sets, Compilation, Testing, Packaging, and Toolchains</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Coordinates, Dependencies, Repositories, Metadata,
+              Transitivity, and Version Selection
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Coordinates, Dependencies, Repositories,
+                Metadata, Transitivity, and Version Selection: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Coordinates, Dependencies, Repositories,
+                Metadata, Transitivity, and Version Selection: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Coordinates, Dependencies, Repositories,
+                Metadata, Transitivity, and Version Selection: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Coordinates, Dependencies, Repositories,
+                Metadata, Transitivity, and Version Selection: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Coordinates, Dependencies,
+                Repositories, Metadata, Transitivity, and Version Selection</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>04</span>Apache Maven Installation, Wrapper, Settings, Local
+              Repository, and Project Bootstrap
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="Lesson1.html"
+                ><span>01</span>Apache Maven Installation, Wrapper, Settings,
+                Local Repository, and Project Bootstrap: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson2.html"
+                ><span>02</span>Apache Maven Installation, Wrapper, Settings,
+                Local Repository, and Project Bootstrap: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson3.html"
+                ><span>03</span>Apache Maven Installation, Wrapper, Settings,
+                Local Repository, and Project Bootstrap: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson4.html"
+                ><span>04</span>Apache Maven Installation, Wrapper, Settings,
+                Local Repository, and Project Bootstrap: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Apache Maven Installation,
+                Wrapper, Settings, Local Repository, and Project Bootstrap</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Maven POM Structure, Coordinates, Packaging, Build
+              Lifecycle, Phases, and Goals
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Maven POM Structure, Coordinates, Packaging,
+                Build Lifecycle, Phases, and Goals: Concepts, Architecture, and
+                Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Maven POM Structure, Coordinates, Packaging,
+                Build Lifecycle, Phases, and Goals: Guided Hands-On Workflow and
+                Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Maven POM Structure, Coordinates, Packaging,
+                Build Lifecycle, Phases, and Goals: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Maven POM Structure, Coordinates, Packaging,
+                Build Lifecycle, Phases, and Goals: Diagnostics, Failure Modes,
+                Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven POM Structure,
+                Coordinates, Packaging, Build Lifecycle, Phases, and Goals</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Maven Dependencies, Scopes, Transitive Resolution,
+              Exclusions, Optional Dependencies, and Classpaths
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Maven Dependencies, Scopes, Transitive
+                Resolution, Exclusions, Optional Dependencies, and Classpaths:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Maven Dependencies, Scopes, Transitive
+                Resolution, Exclusions, Optional Dependencies, and Classpaths:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Maven Dependencies, Scopes, Transitive
+                Resolution, Exclusions, Optional Dependencies, and Classpaths:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Maven Dependencies, Scopes, Transitive
+                Resolution, Exclusions, Optional Dependencies, and Classpaths:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Dependencies, Scopes,
+                Transitive Resolution, Exclusions, Optional Dependencies, and
+                Classpaths</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Maven Plugins, Lifecycle Bindings, Plugin
+              Configuration, Executions, and Plugin Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Maven Plugins, Lifecycle Bindings, Plugin
+                Configuration, Executions, and Plugin Management: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Maven Plugins, Lifecycle Bindings, Plugin
+                Configuration, Executions, and Plugin Management: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Maven Plugins, Lifecycle Bindings, Plugin
+                Configuration, Executions, and Plugin Management: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Maven Plugins, Lifecycle Bindings, Plugin
+                Configuration, Executions, and Plugin Management: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Plugins, Lifecycle
+                Bindings, Plugin Configuration, Executions, and Plugin
+                Management</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Maven Properties, Profiles, settings.xml, Mirrors,
+              Proxies, Servers, and Environment-Specific Builds
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Maven Properties, Profiles, settings.xml,
+                Mirrors, Proxies, Servers, and Environment-Specific Builds:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Maven Properties, Profiles, settings.xml,
+                Mirrors, Proxies, Servers, and Environment-Specific Builds:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Maven Properties, Profiles, settings.xml,
+                Mirrors, Proxies, Servers, and Environment-Specific Builds:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Maven Properties, Profiles, settings.xml,
+                Mirrors, Proxies, Servers, and Environment-Specific Builds:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Properties, Profiles,
+                settings.xml, Mirrors, Proxies, Servers, and
+                Environment-Specific Builds</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Maven Multi-Module Projects, Parent POMs,
+              Aggregation, Inheritance, and Reactor Builds
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Maven Multi-Module Projects, Parent POMs,
+                Aggregation, Inheritance, and Reactor Builds: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Maven Multi-Module Projects, Parent POMs,
+                Aggregation, Inheritance, and Reactor Builds: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Maven Multi-Module Projects, Parent POMs,
+                Aggregation, Inheritance, and Reactor Builds: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Maven Multi-Module Projects, Parent POMs,
+                Aggregation, Inheritance, and Reactor Builds: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Multi-Module Projects,
+                Parent POMs, Aggregation, Inheritance, and Reactor Builds</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Maven Testing with Surefire, Failsafe, Integration
+              Tests, Reports, and Quality Gates
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Maven Testing with Surefire, Failsafe,
+                Integration Tests, Reports, and Quality Gates: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Maven Testing with Surefire, Failsafe,
+                Integration Tests, Reports, and Quality Gates: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Maven Testing with Surefire, Failsafe,
+                Integration Tests, Reports, and Quality Gates: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Maven Testing with Surefire, Failsafe,
+                Integration Tests, Reports, and Quality Gates: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Testing with Surefire,
+                Failsafe, Integration Tests, Reports, and Quality Gates</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Maven dependencyManagement, BOMs, Version
+              Alignment, Enforcer, and Dependency Analysis
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Maven dependencyManagement, BOMs, Version
+                Alignment, Enforcer, and Dependency Analysis: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Maven dependencyManagement, BOMs, Version
+                Alignment, Enforcer, and Dependency Analysis: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Maven dependencyManagement, BOMs, Version
+                Alignment, Enforcer, and Dependency Analysis: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Maven dependencyManagement, BOMs, Version
+                Alignment, Enforcer, and Dependency Analysis: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven dependencyManagement,
+                BOMs, Version Alignment, Enforcer, and Dependency Analysis</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Maven Packaging, install, deploy, Distribution
+              Management, Signing, and Repository Publishing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Maven Packaging, install, deploy, Distribution
+                Management, Signing, and Repository Publishing: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Maven Packaging, install, deploy, Distribution
+                Management, Signing, and Repository Publishing: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Maven Packaging, install, deploy, Distribution
+                Management, Signing, and Repository Publishing: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Maven Packaging, install, deploy, Distribution
+                Management, Signing, and Repository Publishing: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Packaging, install,
+                deploy, Distribution Management, Signing, and Repository
+                Publishing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Maven Performance, Parallel Builds, Daemon Options,
+              Reproducible Builds, and Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Maven Performance, Parallel Builds, Daemon
+                Options, Reproducible Builds, and Troubleshooting: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Maven Performance, Parallel Builds, Daemon
+                Options, Reproducible Builds, and Troubleshooting: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Maven Performance, Parallel Builds, Daemon
+                Options, Reproducible Builds, and Troubleshooting:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Maven Performance, Parallel Builds, Daemon
+                Options, Reproducible Builds, and Troubleshooting: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven Performance, Parallel
+                Builds, Daemon Options, Reproducible Builds, and
+                Troubleshooting</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Maven 4 Preview, Build Consumer POM, Compatibility,
+              Migration Planning, and Maven 3 Production Baselines
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Maven 4 Preview, Build Consumer POM,
+                Compatibility, Migration Planning, and Maven 3 Production
+                Baselines: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Maven 4 Preview, Build Consumer POM,
+                Compatibility, Migration Planning, and Maven 3 Production
+                Baselines: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Maven 4 Preview, Build Consumer POM,
+                Compatibility, Migration Planning, and Maven 3 Production
+                Baselines: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Maven 4 Preview, Build Consumer POM,
+                Compatibility, Migration Planning, and Maven 3 Production
+                Baselines: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven 4 Preview, Build Consumer
+                POM, Compatibility, Migration Planning, and Maven 3 Production
+                Baselines</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Gradle Installation, Wrapper, CLI, Settings, Build
+              Scripts, and Project Bootstrap
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Gradle Installation, Wrapper, CLI, Settings,
+                Build Scripts, and Project Bootstrap: Concepts, Architecture,
+                and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Gradle Installation, Wrapper, CLI, Settings,
+                Build Scripts, and Project Bootstrap: Guided Hands-On Workflow
+                and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Gradle Installation, Wrapper, CLI, Settings,
+                Build Scripts, and Project Bootstrap: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Gradle Installation, Wrapper, CLI, Settings,
+                Build Scripts, and Project Bootstrap: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Installation, Wrapper,
+                CLI, Settings, Build Scripts, and Project Bootstrap</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Groovy DSL and Kotlin DSL, Properties, Providers,
+              Lazy Configuration, and Build Authoring
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Groovy DSL and Kotlin DSL, Properties,
+                Providers, Lazy Configuration, and Build Authoring: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Groovy DSL and Kotlin DSL, Properties,
+                Providers, Lazy Configuration, and Build Authoring: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Groovy DSL and Kotlin DSL, Properties,
+                Providers, Lazy Configuration, and Build Authoring:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Groovy DSL and Kotlin DSL, Properties,
+                Providers, Lazy Configuration, and Build Authoring: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Groovy DSL and Kotlin DSL,
+                Properties, Providers, Lazy Configuration, and Build
+                Authoring</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Gradle Tasks, Task Graph, Dependencies, Ordering,
+              Inputs, Outputs, and Incremental Work
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Gradle Tasks, Task Graph, Dependencies,
+                Ordering, Inputs, Outputs, and Incremental Work: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Gradle Tasks, Task Graph, Dependencies,
+                Ordering, Inputs, Outputs, and Incremental Work: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Gradle Tasks, Task Graph, Dependencies,
+                Ordering, Inputs, Outputs, and Incremental Work: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Gradle Tasks, Task Graph, Dependencies,
+                Ordering, Inputs, Outputs, and Incremental Work: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Tasks, Task Graph,
+                Dependencies, Ordering, Inputs, Outputs, and Incremental Work</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Gradle Plugins, Core Plugins, Community Plugins,
+              Convention Plugins, and Plugin Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Gradle Plugins, Core Plugins, Community Plugins,
+                Convention Plugins, and Plugin Management: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Gradle Plugins, Core Plugins, Community Plugins,
+                Convention Plugins, and Plugin Management: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Gradle Plugins, Core Plugins, Community Plugins,
+                Convention Plugins, and Plugin Management: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Gradle Plugins, Core Plugins, Community Plugins,
+                Convention Plugins, and Plugin Management: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Plugins, Core Plugins,
+                Community Plugins, Convention Plugins, and Plugin Management</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Gradle Configurations, Dependency Resolution,
+              Variants, Attributes, Capabilities, and Metadata Rules
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Gradle Configurations, Dependency Resolution,
+                Variants, Attributes, Capabilities, and Metadata Rules:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Gradle Configurations, Dependency Resolution,
+                Variants, Attributes, Capabilities, and Metadata Rules: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Gradle Configurations, Dependency Resolution,
+                Variants, Attributes, Capabilities, and Metadata Rules:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Gradle Configurations, Dependency Resolution,
+                Variants, Attributes, Capabilities, and Metadata Rules:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Configurations,
+                Dependency Resolution, Variants, Attributes, Capabilities, and
+                Metadata Rules</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Version Catalogs, Platforms, Constraints,
+              Dependency Locking, and Centralized Version Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Version Catalogs, Platforms, Constraints,
+                Dependency Locking, and Centralized Version Governance:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Version Catalogs, Platforms, Constraints,
+                Dependency Locking, and Centralized Version Governance: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Version Catalogs, Platforms, Constraints,
+                Dependency Locking, and Centralized Version Governance:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Version Catalogs, Platforms, Constraints,
+                Dependency Locking, and Centralized Version Governance:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Version Catalogs, Platforms,
+                Constraints, Dependency Locking, and Centralized Version
+                Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Gradle Multi-Project Builds, Composite Builds,
+              Included Builds, and Build Structure Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Gradle Multi-Project Builds, Composite Builds,
+                Included Builds, and Build Structure Design: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Gradle Multi-Project Builds, Composite Builds,
+                Included Builds, and Build Structure Design: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Gradle Multi-Project Builds, Composite Builds,
+                Included Builds, and Build Structure Design: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Gradle Multi-Project Builds, Composite Builds,
+                Included Builds, and Build Structure Design: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Multi-Project Builds,
+                Composite Builds, Included Builds, and Build Structure Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Gradle Source Sets, JVM Test Suites, Test
+              Filtering, Reporting, and Integration Testing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Gradle Source Sets, JVM Test Suites, Test
+                Filtering, Reporting, and Integration Testing: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Gradle Source Sets, JVM Test Suites, Test
+                Filtering, Reporting, and Integration Testing: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Gradle Source Sets, JVM Test Suites, Test
+                Filtering, Reporting, and Integration Testing: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Gradle Source Sets, JVM Test Suites, Test
+                Filtering, Reporting, and Integration Testing: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Source Sets, JVM Test
+                Suites, Test Filtering, Reporting, and Integration Testing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Java Toolchains, Compiler Configuration, Annotation
+              Processing, Kotlin/JVM, and Cross-Version Builds
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Java Toolchains, Compiler Configuration,
+                Annotation Processing, Kotlin/JVM, and Cross-Version Builds:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Java Toolchains, Compiler Configuration,
+                Annotation Processing, Kotlin/JVM, and Cross-Version Builds:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Java Toolchains, Compiler Configuration,
+                Annotation Processing, Kotlin/JVM, and Cross-Version Builds:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Java Toolchains, Compiler Configuration,
+                Annotation Processing, Kotlin/JVM, and Cross-Version Builds:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Java Toolchains, Compiler
+                Configuration, Annotation Processing, Kotlin/JVM, and
+                Cross-Version Builds</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Incremental Builds, Configuration Cache, Build
+              Cache, Remote Cache, and Reproducibility
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Incremental Builds, Configuration Cache, Build
+                Cache, Remote Cache, and Reproducibility: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Incremental Builds, Configuration Cache, Build
+                Cache, Remote Cache, and Reproducibility: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Incremental Builds, Configuration Cache, Build
+                Cache, Remote Cache, and Reproducibility: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Incremental Builds, Configuration Cache, Build
+                Cache, Remote Cache, and Reproducibility: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Incremental Builds,
+                Configuration Cache, Build Cache, Remote Cache, and
+                Reproducibility</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Gradle Daemon, Workers, Parallelism, File-System
+              Watching, Profiling, and Build Performance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Gradle Daemon, Workers, Parallelism, File-System
+                Watching, Profiling, and Build Performance: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Gradle Daemon, Workers, Parallelism, File-System
+                Watching, Profiling, and Build Performance: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Gradle Daemon, Workers, Parallelism, File-System
+                Watching, Profiling, and Build Performance: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Gradle Daemon, Workers, Parallelism, File-System
+                Watching, Profiling, and Build Performance: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Daemon, Workers,
+                Parallelism, File-System Watching, Profiling, and Build
+                Performance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Gradle Publishing, Maven Publish, Ivy Publish,
+              Signing, Metadata, and Repository Promotion
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Gradle Publishing, Maven Publish, Ivy Publish,
+                Signing, Metadata, and Repository Promotion: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Gradle Publishing, Maven Publish, Ivy Publish,
+                Signing, Metadata, and Repository Promotion: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Gradle Publishing, Maven Publish, Ivy Publish,
+                Signing, Metadata, and Repository Promotion: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Gradle Publishing, Maven Publish, Ivy Publish,
+                Signing, Metadata, and Repository Promotion: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Gradle Publishing, Maven
+                Publish, Ivy Publish, Signing, Metadata, and Repository
+                Promotion</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Custom Gradle Plugins, Build Logic, Precompiled
+              Script Plugins, TestKit, and Plugin Development
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Custom Gradle Plugins, Build Logic, Precompiled
+                Script Plugins, TestKit, and Plugin Development: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Custom Gradle Plugins, Build Logic, Precompiled
+                Script Plugins, TestKit, and Plugin Development: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Custom Gradle Plugins, Build Logic, Precompiled
+                Script Plugins, TestKit, and Plugin Development: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Custom Gradle Plugins, Build Logic, Precompiled
+                Script Plugins, TestKit, and Plugin Development: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Custom Gradle Plugins, Build
+                Logic, Precompiled Script Plugins, TestKit, and Plugin
+                Development</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Dependency Verification, Checksums, Signatures,
+              Repository Content Filtering, and Supply-Chain Security
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Dependency Verification, Checksums, Signatures,
+                Repository Content Filtering, and Supply-Chain Security:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Dependency Verification, Checksums, Signatures,
+                Repository Content Filtering, and Supply-Chain Security: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Dependency Verification, Checksums, Signatures,
+                Repository Content Filtering, and Supply-Chain Security:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Dependency Verification, Checksums, Signatures,
+                Repository Content Filtering, and Supply-Chain Security:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Dependency Verification,
+                Checksums, Signatures, Repository Content Filtering, and
+                Supply-Chain Security</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>CI/CD Build Patterns, Caching, Test Sharding,
+              Artifact Promotion, and Ephemeral Build Agents
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>CI/CD Build Patterns, Caching, Test Sharding,
+                Artifact Promotion, and Ephemeral Build Agents: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>CI/CD Build Patterns, Caching, Test Sharding,
+                Artifact Promotion, and Ephemeral Build Agents: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>CI/CD Build Patterns, Caching, Test Sharding,
+                Artifact Promotion, and Ephemeral Build Agents: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>CI/CD Build Patterns, Caching, Test Sharding,
+                Artifact Promotion, and Ephemeral Build Agents: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Build Patterns, Caching,
+                Test Sharding, Artifact Promotion, and Ephemeral Build Agents</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Maven vs Gradle: Model Differences, Migration
+              Strategies, Mixed Estates, and Tool Selection
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Maven vs Gradle: Model Differences, Migration
+                Strategies, Mixed Estates, and Tool Selection: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Maven vs Gradle: Model Differences, Migration
+                Strategies, Mixed Estates, and Tool Selection: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Maven vs Gradle: Model Differences, Migration
+                Strategies, Mixed Estates, and Tool Selection: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Maven vs Gradle: Model Differences, Migration
+                Strategies, Mixed Estates, and Tool Selection: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven vs Gradle: Model
+                Differences, Migration Strategies, Mixed Estates, and Tool
+                Selection</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Production Capstone: Build, Test, Secure, Publish,
+              and Optimize a Multi-Module JVM Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Production Capstone: Build, Test, Secure,
+                Publish, and Optimize a Multi-Module JVM Platform: Requirements,
+                Constraints, and Target Architecture</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Production Capstone: Build, Test, Secure,
+                Publish, and Optimize a Multi-Module JVM Platform:
+                Implementation and Automation Build-Out</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Production Capstone: Build, Test, Secure,
+                Publish, and Optimize a Multi-Module JVM Platform: Security,
+                Governance, and Reliability Validation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Production Capstone: Build, Test, Secure,
+                Publish, and Optimize a Multi-Module JVM Platform: Failure
+                Injection, Troubleshooting, and Recovery Drill</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Production Capstone: Build, Test, Secure,
+                Publish, and Optimize a Multi-Module JVM Platform: Final
+                Operational Review and Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Maven &amp; Gradle</a><span>/</span
+          ><span>Chapter 04</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 04</span><i></i><span>Lesson 01</span><i></i
+            ><span>~95 minutes</span>
+          </div>
+          <h1>
+            Apache Maven Installation, Wrapper, Settings, Local Repository, and
+            Project Bootstrap: Concepts, Architecture, and Mental Model
+          </h1>
+          <p>
+            Build a beginner-first mental model of Apache Maven runtime, Maven
+            Wrapper, settings precedence, local repository state, project
+            bootstrap, and the trust boundaries between them.
+          </p>
+          <div class="lesson-tags">
+            <span>Maven Runtime</span><span>Maven Wrapper</span
+            ><span>settings.xml</span><span>Local Repository</span
+            ><span>Bootstrap</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Separate the Maven runtime from the project-owned Maven Wrapper
+              and explain the bootstrap chicken-and-egg relationship.
+            </li>
+            <li>
+              Identify wrapper scripts/properties, global settings, user
+              settings, project POM, local repository, remote repositories, and
+              generated build output as different state stores.
+            </li>
+            <li>
+              Explain settings precedence and why credentials/proxy/mirror
+              information belongs outside a distributable POM.
+            </li>
+            <li>
+              Treat the local repository as resolver-managed cache/install state
+              rather than as source control or an authoritative artifact
+              repository.
+            </li>
+            <li>
+              Use read-only commands to prove the active
+              Maven/JDK/settings/repository environment before changing it.
+            </li>
+          </ul>
+        </section>
+        <div class="callout">
+          <strong>Version baseline — verified 2026-08-23.</strong> The required
+          path uses JDK 21 and Apache Maven 3.9.16. Maven 3.9.16 is the current
+          recommended GA and requires JDK 8+ to execute; Maven 3.10.0-rc-1 and
+          Maven 4.0.0-rc-6 are previews and are not required. Maven Wrapper
+          3.3.4 is the current stable wrapper. Wrapper examples use the
+          <code>only-script</code> distribution type and pin the Maven
+          distribution with <code>distributionSha256Sum</code> after the
+          downloaded archive has first been verified against Apache's published
+          release checksum/signature. Re-check these versions before applying
+          the examples to production.
+        </div>
+        <section id="problem">
+          <h2>
+            1. The practical problem: “Maven works here” is not an execution
+            contract
+          </h2>
+          <p>
+            Chapter 03 ended with a resolved dependency graph. Before we can
+            trust that graph in CI or on another developer machine, we need to
+            know <em>which Maven</em> built it,
+            <em>which Java runtime</em> launched Maven,
+            <em>which settings</em> redirected repositories or proxies, and
+            <em>which local repository</em> supplied cached state.
+          </p>
+          <p>
+            A globally installed <code>mvn</code> executable is machine state. A
+            Maven Wrapper is project state that selects a Maven distribution. A
+            <code>settings.xml</code> file is execution-environment state. The
+            local repository is mutable resolver state. Those layers can
+            influence one build simultaneously, but they are not
+            interchangeable.
+          </p>
+          <div class="callout warning">
+            <strong>Trust boundary:</strong> wrapper scripts can download and
+            execute a Maven distribution, settings can redirect artifact/plugin
+            downloads, and repository content becomes executable build input.
+            Review those files with the same care you give CI bootstrap code.
+          </div>
+        </section>
+        <section id="runtime">
+          <h2>2. Maven runtime and Java runtime are two identities</h2>
+          <p>
+            <code>mvn -v</code> does more than print a Maven version: it also
+            reports Maven home and the Java runtime used to execute Maven. That
+            Java runtime can differ from the JDK later selected by a toolchain
+            for compilation. Chapter 02 introduced that distinction; here it
+            becomes an installation diagnostic.
+          </p>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>read-only runtime inspection</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-bash"># Bash / Git Bash / macOS / Linux
+mvn -v
+java -version
+printf "JAVA_HOME=%s\n" "${JAVA_HOME:-&lt;unset&gt;}"</code></pre>
+          </div>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>read-only runtime inspection</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-powershell"># PowerShell
+mvn -v
+java -version
+"JAVA_HOME=$env:JAVA_HOME"</code></pre>
+          </div>
+          <p>
+            If <code>mvn -v</code> reports an unexpected Java home, changing
+            <code>pom.xml</code> is not the first correction. First fix the
+            launcher environment, package-manager installation, shell startup
+            state, or CI JDK selection that chose the runtime.
+          </p>
+        </section>
+        <section id="wrapper">
+          <h2>
+            3. The Maven Wrapper turns Maven version selection into project
+            state
+          </h2>
+          <p>
+            The Wrapper gives a repository two launchers—<code>mvnw</code> and
+            <code>mvnw.cmd</code>—plus
+            <code>.mvn/wrapper/maven-wrapper.properties</code>. With the current
+            default <code>only-script</code> type, the scripts can download the
+            configured Maven distribution without storing
+            <code>maven-wrapper.jar</code> in the project.
+          </p>
+          <div class="diagram-card">
+            <div class="diagram-label">
+              Wrapper execution path and trust boundaries
+            </div>
+            <pre class="mermaid">
+flowchart TD
+  U[Developer or CI] --&gt; S[mvnw / mvnw.cmd]
+  S --&gt; P[.mvn/wrapper/maven-wrapper.properties]
+  P --&gt;|distributionUrl + SHA-256 pin| D[Maven distribution]
+  D --&gt; M[Maven runtime]
+  J[JAVA_HOME / java on PATH] --&gt; M
+  M --&gt; Q[pom.xml + settings]
+  Q --&gt; R[remote repositories]
+  Q --&gt; L[local repository]
+  M --&gt; O[target/ output]
+</pre
+            >
+          </div>
+          <p>
+            The wrapper does not magically make every other input reproducible.
+            It stabilizes the Maven distribution. JDK selection,
+            plugin/dependency versions, settings, remote repository policy, and
+            undeclared environment inputs remain separate controls.
+          </p>
+        </section>
+        <section id="wrapper-files">
+          <h2>4. What should live in version control?</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Typical location</th>
+                  <th>Version-control intent</th>
+                  <th>Why</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Wrapper launchers</td>
+                  <td><code>mvnw</code>, <code>mvnw.cmd</code></td>
+                  <td>Commit</td>
+                  <td>They are the project entry point.</td>
+                </tr>
+                <tr>
+                  <td>Wrapper configuration</td>
+                  <td><code>.mvn/wrapper/maven-wrapper.properties</code></td>
+                  <td>Commit</td>
+                  <td>Pins distribution URL/version and checksum policy.</td>
+                </tr>
+                <tr>
+                  <td>Project model</td>
+                  <td><code>pom.xml</code></td>
+                  <td>Commit</td>
+                  <td>Declares project build model.</td>
+                </tr>
+                <tr>
+                  <td>Project-safe Maven config</td>
+                  <td>
+                    <code>.mvn/maven.config</code>,
+                    <code>.mvn/jvm.config</code> when intentionally used
+                  </td>
+                  <td>Commit with review</td>
+                  <td>Affects every invocation; keep secret-free.</td>
+                </tr>
+                <tr>
+                  <td>User settings</td>
+                  <td><code>~/.m2/settings.xml</code></td>
+                  <td>Do not commit personal copy</td>
+                  <td>May contain credentials, proxies, local paths.</td>
+                </tr>
+                <tr>
+                  <td>Local repository</td>
+                  <td><code>~/.m2/repository</code> by default</td>
+                  <td>Do not commit</td>
+                  <td>Mutable cache plus locally installed artifacts.</td>
+                </tr>
+                <tr>
+                  <td>Generated outputs</td>
+                  <td><code>target/</code></td>
+                  <td>Normally ignore</td>
+                  <td>Derived build products, not source of truth.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="settings">
+          <h2>
+            5. Settings are layered environment policy, not project source
+          </h2>
+          <p>
+            Maven 3 reads global settings from
+            <code>${maven.home}/conf/settings.xml</code> and user settings from
+            <code>${user.home}/.m2/settings.xml</code>. When both are present,
+            Maven merges them and user settings take precedence for conflicts.
+            CLI options <code>-gs</code> and <code>-s</code> can select
+            alternate global and user settings files for controlled runs.
+          </p>
+          <p>
+            Settings can define the local repository location, mirrors, proxies,
+            server credentials, profiles, and plugin groups. A repository
+            <code>id</code> connects a repository or mirror to a
+            <code>&lt;server&gt;</code> credential entry; putting the password
+            in <code>pom.xml</code> would move machine-specific secret state
+            into shared project source.
+          </p>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>safe settings skeleton — no real credentials</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-xml">&lt;settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd"&gt;
+  &lt;offline&gt;false&lt;/offline&gt;
+  &lt;servers&gt;
+    &lt;server&gt;
+      &lt;id&gt;repo-example&lt;/id&gt;
+      &lt;username&gt;learner-example&lt;/username&gt;
+      &lt;password&gt;token-FAKE_DO_NOT_USE&lt;/password&gt;
+    &lt;/server&gt;
+  &lt;/servers&gt;
+&lt;/settings&gt;</code></pre>
+          </div>
+          <div class="callout warning">
+            <strong
+              >Do not copy that fake credential pattern into production source
+              control.</strong
+            >
+            The example only shows how Maven associates a server ID with
+            authentication. Real secrets belong in protected machine/CI
+            configuration and should never be printed by diagnostics.
+          </div>
+        </section>
+        <section id="local-repo">
+          <h2>
+            6. The local repository is mutable resolver state with two roles
+          </h2>
+          <p>
+            By default Maven uses <code>~/.m2/repository</code>. It caches
+            artifacts downloaded from remote repositories and also stores
+            artifacts produced by local <code>install</code> operations. That
+            mixed role is why “it exists in my local repository” is not proof
+            that an artifact exists in an authoritative remote repository.
+          </p>
+          <p>
+            Maven's current repository documentation also warns against treating
+            the local repository as a directory whose layout applications should
+            manipulate directly. Resolver tracks origin/context and locking
+            metadata; current resolver implementations can even split cached and
+            locally installed content. For labs, isolate the repository root
+            through Maven configuration rather than deleting normal user state.
+          </p>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>inspect without deleting normal state</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-bash"># Print the configured local repository path through Maven's model.
+mvn help:evaluate -Dexpression=settings.localRepository -q -DforceStdout
+
+# For a disposable run, select a separate repository root.
+mvn -Dmaven.repo.local="$PWD/.lab/m2repo" -v</code></pre>
+          </div>
+        </section>
+        <section id="bootstrap">
+          <h2>
+            7. Manual bootstrap and archetype bootstrap solve different problems
+          </h2>
+          <p>
+            A manual bootstrap starts from a deliberately small directory and
+            <code>pom.xml</code>. It is excellent for learning because every
+            file has a reason to exist. An archetype is a parameterized project
+            template. Maven's current Quickstart Archetype is version 1.5; it
+            can create a conventional Java project rapidly, but the generated
+            model still requires review.
+          </p>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>official Quickstart archetype — optional path</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-bash">mvn archetype:generate \
+  -DgroupId=com.example \
+  -DartifactId=learner-example \
+  -DarchetypeArtifactId=maven-archetype-quickstart \
+  -DarchetypeVersion=1.5 \
+  -DinteractiveMode=false</code></pre>
+          </div>
+          <p>
+            In a production organization, an internal approved template can
+            encode repository policy and plugin baselines, but that convenience
+            creates a maintenance responsibility: the template itself becomes
+            supply-chain/build logic.
+          </p>
+        </section>
+        <section id="inspect">
+          <h2>8. Inspect the effective environment before mutating it</h2>
+          <p>
+            For installation/bootstrap questions, four read-only observations
+            answer most first-pass questions: Maven/JDK identity, wrapper
+            properties, effective settings, and effective project model.
+          </p>
+          <div class="code-block">
+            <div aria-hidden="true" class="code-head" hidden="">
+              <span>read-only inspection sequence</span
+              ><button data-copy-code="" type="button">Copy</button>
+            </div>
+            <pre><code class="language-bash">mvn -v
+cat .mvn/wrapper/maven-wrapper.properties 2&gt;/dev/null || true
+mvn org.apache.maven.plugins:maven-help-plugin:3.5.2:effective-settings \
+  -Doutput=.lab/effective-settings.xml
+mvn org.apache.maven.plugins:maven-help-plugin:3.5.2:effective-pom \
+  -Doutput=.lab/effective-pom.xml</code></pre>
+          </div>
+          <p>
+            <code>help:effective-settings</code> hides passwords by default.
+            Keep it that way. Effective output is useful evidence, but it can
+            still expose internal repository URLs, usernames, proxy hosts,
+            profile properties, and filesystem paths; treat it as potentially
+            sensitive build-environment data.
+          </p>
+        </section>
+        <section id="state-map">
+          <h2>9. A state map for Chapter 04</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Question</th>
+                  <th>Inspect first</th>
+                  <th>Do not confuse it with</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Which Maven executes?</td>
+                  <td><code>./mvnw -v</code> or <code>mvn -v</code></td>
+                  <td>Compiler target or dependency version</td>
+                </tr>
+                <tr>
+                  <td>Which Java launches Maven?</td>
+                  <td>Java home/version reported by Maven</td>
+                  <td>Toolchain-selected compiler JDK</td>
+                </tr>
+                <tr>
+                  <td>Which repositories/mirrors apply?</td>
+                  <td>effective settings + effective POM</td>
+                  <td>Files already cached locally</td>
+                </tr>
+                <tr>
+                  <td>Where is mutable dependency state?</td>
+                  <td>local repository path</td>
+                  <td>Authoritative remote repository</td>
+                </tr>
+                <tr>
+                  <td>Which project model is shared?</td>
+                  <td><code>pom.xml</code> + reviewed project config</td>
+                  <td>User settings or IDE metadata</td>
+                </tr>
+                <tr>
+                  <td>Which output was generated?</td>
+                  <td><code>target/</code> and build log</td>
+                  <td>Input source tree</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="devops">
+          <h2>10. Why this matters in DevOps</h2>
+          <p>
+            CI should be able to answer “which Maven and JDK ran, which settings
+            policy applied, where dependencies came from, and what mutable state
+            was reused?” before anyone trusts a produced JAR. A committed
+            wrapper narrows Maven-version drift; isolated/controlled settings
+            and repositories narrow machine drift; captured evidence makes
+            failures diagnosable instead of anecdotal.
+          </p>
+        </section>
+        <section id="mini-lab">
+          <h2>11. Mini-lab — inventory your Maven execution layers</h2>
+          <p>
+            Without deleting or changing anything, record the output of
+            <code>mvn -v</code>, whether wrapper files exist, the path of the
+            active local repository, and whether user/global settings exist. Do
+            not print settings contents if they might contain employer/private
+            configuration. Classify every observation as project state, Maven
+            installation state, Java runtime state, user settings state, or
+            mutable repository/cache state.
+          </p>
+          <p>
+            <strong>Verification:</strong> you should be able to explain which
+            of those facts would travel with a Git clone and which would not.
+            <strong>Cleanup:</strong> delete only the note file you created for
+            the exercise.
+          </p>
+        </section>
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A repository has <code>mvnw</code> but a developer runs
+                <code>mvn package</code>. Which Maven version is guaranteed by
+                the wrapper?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                None for that invocation. The developer bypassed the wrapper and
+                used whatever <code>mvn</code> resolves on the machine PATH.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >If user and global <code>settings.xml</code> define conflicting
+                values, which layer normally dominates?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                User settings dominate the merged global settings for
+                conflicting values.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A JAR exists under <code>~/.m2/repository</code>. Does that
+                prove the same artifact is published to the organization
+                repository?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. The local repository also contains downloaded cache entries
+                and locally installed artifacts; local presence is not remote
+                publication evidence.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is <code>distributionSha256Sum</code> useful in wrapper
+                configuration?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                It lets the wrapper reject a Maven distribution whose downloaded
+                bytes do not match the expected SHA-256 pin, reducing the risk
+                of silently executing altered distribution bytes.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why should effective-settings output be handled cautiously even
+                when passwords are hidden?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                It can still reveal internal repository URLs, usernames,
+                proxies, profiles, and filesystem/environment details.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>Summary</h2>
+          <p>
+            Maven bootstrap has distinct layers: Java launches Maven; the
+            wrapper can select a project-pinned Maven distribution; settings
+            merge machine/user policy; the project model declares build intent;
+            remote repositories provide artifacts; the local repository
+            caches/downloads and stores locally installed artifacts; and
+            <code>target/</code> contains derived output. Reproducibility
+            improves when those layers are explicit and independently
+            inspectable.
+          </p>
+        </section>
+        <section class="next-concepts">
+          <span>Next lesson</span>
+          <h3>Bootstrap a wrapper-first disposable project</h3>
+          <p>
+            Lesson 2 creates a tiny project, installs the Maven Wrapper,
+            verifies its distribution integrity, isolates wrapper and repository
+            state, captures effective settings safely, and performs the first
+            wrapper-only build.
+          </p>
+        </section>
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <p>
+            Version-sensitive commands and properties were checked against
+            current Apache Maven documentation on 2026-08-23. Re-check
+            Maven/Wrapper/plugin versions before production use.
+          </p>
+          <ul>
+            <li>
+              <a
+                href="https://maven.apache.org/install"
+                rel="noopener"
+                target="_blank"
+                >Apache Maven — Installation</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/download.cgi"
+                rel="noopener"
+                target="_blank"
+                >Apache Maven — Download and current/preview release status</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/tools/wrapper/index.html"
+                rel="noopener"
+                target="_blank"
+                >Apache Maven Wrapper</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/tools/wrapper/maven-wrapper-plugin/wrapper-mojo.html"
+                rel="noopener"
+                target="_blank"
+                >Maven Wrapper Plugin — wrapper:wrapper</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/settings.html"
+                rel="noopener"
+                target="_blank"
+                >Maven Settings Reference</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/guides/mini/guide-mirror-settings"
+                rel="noopener"
+                target="_blank"
+                >Maven — Using Mirrors for Repositories</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/repositories/local.html"
+                rel="noopener"
+                target="_blank"
+                >Maven Local Repositories</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/plugins/maven-help-plugin/effective-settings-mojo.html"
+                rel="noopener"
+                target="_blank"
+                >Maven Help Plugin — help:effective-settings</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://maven.apache.org/archetypes/maven-archetype-quickstart/"
+                rel="noopener"
+                target="_blank"
+                >Maven Quickstart Archetype</a
+              >
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="../Chapter03/Lesson5.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson2.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  </body>
+</html>
