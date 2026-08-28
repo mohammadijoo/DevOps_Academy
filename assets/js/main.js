@@ -140,4 +140,15 @@
   document.querySelectorAll('[data-current-year]').forEach(el => {
     el.textContent = new Date().getFullYear();
   });
+  
+  /* Automatically make all lesson tables horizontally scrollable */
+document.querySelectorAll('.lesson-article table').forEach((table) => {
+  if (table.closest('.table-wrap')) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'table-wrap';
+
+  table.parentNode.insertBefore(wrapper, table);
+  wrapper.appendChild(table);
+});
 })();

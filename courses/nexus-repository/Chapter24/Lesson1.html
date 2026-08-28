@@ -1,0 +1,2488 @@
+<!doctype html>
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Build a precise Docker/OCI registry operations mental model around tags, manifests, digests, shared layers, cleanup stages, proxy caches, search, authentication, and storage reclamation."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Docker Registry Operations, Garbage Collection, Retention, Search,
+      Proxying, and Production Troubleshooting: Concepts, Architecture, and
+      Mental Model | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="nexus-repository-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg
+          ></a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">NX</span>
+            <div>
+              <small>Course 08</small
+              ><strong>Nexus Repository Complete Course</strong>
+            </div></a
+          >
+          <button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 150 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="Nexus Repository course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Artifact Repository Foundations, Package Supply
+              Chains, Components, Assets, and Repository Managers
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifact Repository
+                Foundations, Package Supply Chains, Components, Assets, and
+                Repository Managers</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Nexus Repository Editions, Deployment Models,
+              Architecture, Installation, and Java Runtime Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Nexus Repository Editions,
+                Deployment Models, Architecture, Installation, and Java Runtime
+                Planning</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>User Interface, Search, Browse, Components, Assets,
+              Tags, Uploads, and Repository Navigation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — User Interface, Search, Browse,
+                Components, Assets, Tags, Uploads, and Repository Navigation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Hosted, Proxy, and Group Repositories: Design
+              Patterns, Routing, Caching, and Promotion Flows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Hosted, Proxy, and Group
+                Repositories: Design Patterns, Routing, Caching, and Promotion
+                Flows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Blob Stores, Storage Layout, Database Choices,
+              Capacity Planning, and Data Separation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Concepts, Architecture,
+                and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Guided Hands-On Workflow
+                and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Configuration, Design
+                Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Blob Stores, Storage Layout,
+                Database Choices, Capacity Planning, and Data Separation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Maven 2 Repositories, Snapshots, Releases,
+              Metadata, Checksums, and Maven Client Configuration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven 2 Repositories,
+                Snapshots, Releases, Metadata, Checksums, and Maven Client
+                Configuration</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>npm Repositories, Scoped Packages, Metadata,
+              Tokens, Proxying, and JavaScript Supply Chains
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — npm Repositories, Scoped
+                Packages, Metadata, Tokens, Proxying, and JavaScript Supply
+                Chains</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Docker and OCI Repositories, Connectors, Registry
+              Paths, Authentication, Layers, and Image Metadata
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker and OCI Repositories,
+                Connectors, Registry Paths, Authentication, Layers, and Image
+                Metadata</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>PyPI, Conda, Python Package Indexes, Proxy
+              Behavior, Uploads, and Metadata Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — PyPI, Conda, Python Package
+                Indexes, Proxy Behavior, Uploads, and Metadata Management</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>NuGet Repositories, API Keys, Feeds, Symbols,
+              Proxying, and .NET Package Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Concepts, Architecture,
+                and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Guided Hands-On Workflow
+                and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Configuration, Design
+                Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — NuGet Repositories, API Keys,
+                Feeds, Symbols, Proxying, and .NET Package Workflows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>APT, Yum, Raw, RubyGems, Composer, and
+              Operating-System or Generic Artifact Formats
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — APT, Yum, Raw, RubyGems,
+                Composer, and Operating-System or Generic Artifact Formats</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Conan, Ansible Galaxy, Terraform, Swift, and
+              Emerging Repository Formats
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Concepts, Architecture, and Mental
+                Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Guided Hands-On Workflow and Core
+                Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Configuration, Design Choices, and
+                Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Diagnostics, Failure Modes,
+                Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Conan, Ansible Galaxy,
+                Terraform, Swift, and Emerging Repository Formats</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Proxy Caching, Negative Cache, Remote Storage,
+              Routing Rules, Repository Health, and Failure Behavior
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Proxy Caching, Negative Cache,
+                Remote Storage, Routing Rules, Repository Health, and Failure
+                Behavior</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Content Selectors, Repository Targets, Fine-Grained
+              Privileges, and Path-Level Authorization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Content Selectors, Repository
+                Targets, Fine-Grained Privileges, and Path-Level
+                Authorization</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Users, Roles, Privileges, Realms, Anonymous Access,
+              User Tokens, and Least-Privilege Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Users, Roles, Privileges,
+                Realms, Anonymous Access, User Tokens, and Least-Privilege
+                Design</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>LDAP, SAML, OIDC, External Identity, Credential
+              Rotation, and Authentication Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — LDAP, SAML, OIDC, External
+                Identity, Credential Rotation, and Authentication
+                Troubleshooting</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>TLS, Reverse Proxies, Context Paths, HTTP Settings,
+              Network Boundaries, and Secure Exposure
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — TLS, Reverse Proxies, Context
+                Paths, HTTP Settings, Network Boundaries, and Secure Exposure</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Cleanup Policies, Retention, Component Age,
+              Last-Downloaded Rules, Preview, and Storage Reclamation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Cleanup Policies, Retention,
+                Component Age, Last-Downloaded Rules, Preview, and Storage
+                Reclamation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+              Blob Maintenance, and Operational Housekeeping
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Scheduled Tasks, Repair Jobs,
+                Metadata Rebuilds, Blob Maintenance, and Operational
+                Housekeeping</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>REST API, Repository Provisioning, Security
+              Automation, Pagination, and Infrastructure-as-Code Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — REST API, Repository
+                Provisioning, Security Automation, Pagination, and
+                Infrastructure-as-Code Patterns</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Webhooks, Jenkins and CI Integrations, Maven
+              Deployments, Build Promotion, and Event Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Webhooks, Jenkins and CI
+                Integrations, Maven Deployments, Build Promotion, and Event
+                Automation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Sonatype IQ Integration, Component Intelligence,
+              Quarantine, Policy Evaluation, and Procurement Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Sonatype IQ Integration,
+                Component Intelligence, Quarantine, Policy Evaluation, and
+                Procurement Controls</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>SBOMs, Component Provenance, Vulnerability
+              Governance, Repository Firewall Concepts, and Supply-Chain Risk
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SBOMs, Component Provenance,
+                Vulnerability Governance, Repository Firewall Concepts, and
+                Supply-Chain Risk</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>24</span>Docker Registry Operations, Garbage Collection,
+              Retention, Search, Proxying, and Production Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                 aria-current="page"><span>01</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Registry Operations,
+                Garbage Collection, Retention, Search, Proxying, and Production
+                Troubleshooting</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Backup, Restore, Configuration Export, Blob
+              Recovery, Disaster Scenarios, and Recovery Validation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Backup, Restore, Configuration
+                Export, Blob Recovery, Disaster Scenarios, and Recovery
+                Validation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Database and Instance Migration: OrientDB Sunset,
+              H2/PostgreSQL Paths, and Migrator Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Database and Instance
+                Migration: OrientDB Sunset, H2/PostgreSQL Paths, and Migrator
+                Workflows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Upgrade Planning, Version Support, Breaking
+              Changes, Java Runtime Upgrades, and Rollback Strategy
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Upgrade Planning, Version
+                Support, Breaking Changes, Java Runtime Upgrades, and Rollback
+                Strategy</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>High Availability, Resiliency, Shared Storage, Blob
+              Store Groups, Node Coordination, and Failure Recovery
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — High Availability, Resiliency,
+                Shared Storage, Blob Store Groups, Node Coordination, and
+                Failure Recovery</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Logging, Metrics, Support ZIPs, Request Auditing,
+              Performance Tuning, and Capacity Diagnostics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Logging, Metrics, Support ZIPs,
+                Request Auditing, Performance Tuning, and Capacity
+                Diagnostics</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Production Capstone: Design, Secure, Automate,
+              Migrate, and Recover an Enterprise Artifact Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform:
+                Requirements, Constraints, and Target Architecture</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform:
+                Implementation and Automation Build-Out</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Security,
+                Governance, and Reliability Validation</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Failure
+                Injection, Troubleshooting, and Recovery Drill</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Final
+                Operational Review and Handoff</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Nexus Repository</a><span>/</span
+          ><span>Chapter 24 · Lesson 01</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 24</span><i></i><span>Lesson 01</span><i></i
+            ><span>210–280 min</span>
+          </div>
+          <h1>
+            Docker Registry Operations, Garbage Collection, Retention, Search,
+            Proxying, and Production Troubleshooting: Concepts, Architecture,
+            and Mental Model
+          </h1>
+          <p>
+            Advance from “docker push and pull works” to the operator’s view of
+            a registry: tags are mutable names, digests identify manifest bytes,
+            manifests reference shared layers, cleanup moves through several
+            logical and physical stages, and proxy/search/authentication
+            behavior must be diagnosed independently.
+          </p>
+          <div class="lesson-tags">
+            <span>Docker registry</span><span>Tags and digests</span
+            ><span>Shared layers</span><span>Garbage collection</span
+            ><span>Proxy/cache</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Explain tag, manifest, digest, config, layer, manifest-list/index,
+              component, and asset relationships without collapsing them into
+              “an image.”
+            </li>
+            <li>
+              Trace the supported Docker cleanup chain from retention intent
+              through logical deletion, Docker garbage collection, and
+              blob-store compaction.
+            </li>
+            <li>
+              Separate hosted, proxy, and group behavior from Docker client
+              cache, upstream registry state, and reverse-proxy/network state.
+            </li>
+            <li>
+              Explain the limits of Docker search/discovery and the difference
+              between Nexus SQL search, Registry API listing, and Docker client
+              search.
+            </li>
+            <li>
+              Use read-only HTTP/Nexus evidence to diagnose registry state
+              before mutating content.
+            </li>
+          </ul>
+        </section>
+        <div class="callout warning">
+          <strong>Version baseline (27 August 2026).</strong> The chapter uses
+          Nexus Repository 3.95.2-01 with Java 21 as its dated reference line.
+          Docker behavior has changed substantially across releases; re-check
+          the exact task names, known issues, routing mode, and release notes on
+          the instance you operate.
+        </div>
+        <div class="callout warning">
+          <strong>Current 3.94.0–3.95.2 Docker cleanup warning.</strong>
+          Sonatype documents an open issue where Docker manifest
+          <code>HEAD</code> requests do not refresh an asset's
+          <code>lastDownloaded</code> timestamp. An actively used image can
+          therefore look inactive. Do not use Last Downloaded–based Docker
+          cleanup policies on an affected instance until Sonatype publishes a
+          fixed version.
+        </div>
+        <div class="callout warning">
+          <strong>Safety boundary.</strong> All destructive steps must target
+          explicitly named disposable repositories and synthetic images. Never
+          delete production tags/manifests, edit blob-store files, remove
+          database rows, disable TLS validation, or run garbage
+          collection/compaction on valuable repositories merely to observe
+          behavior.
+        </div>
+        <section id="problem">
+          <h2>
+            1. The operator’s problem: “image size” and “tag count” are
+            misleading
+          </h2>
+          <p>
+            Chapter 8 taught Docker/OCI repository basics. At production scale,
+            the difficult questions are different: Which exact manifest did a
+            tag resolve to? Which layers are shared by ten images? Why did
+            deleting a tag free almost no disk space? Why does a proxy return an
+            older tag than expected? Why does the Docker client report
+            <code>401</code>, <code>404</code>, or <code>429</code>? Which task
+            can safely reclaim unreferenced layers, and which task merely marks
+            repository content as deleted?
+          </p>
+          <p>
+            The operational mistake is to treat a Docker image as one file. A
+            registry stores a graph of metadata and blobs. Retention and
+            troubleshooting have to follow that graph.
+          </p>
+        </section>
+        <section id="identity">
+          <h2>
+            2. Identity hierarchy: reference → tag or digest → manifest →
+            config/layers
+          </h2>
+          <div class="diagram-card">
+            <pre class="mermaid">
+flowchart LR
+  REF[image reference] --&gt; TAG[tag such as 1.4 or latest]
+  REF --&gt; DG[digest reference sha256:...]
+  TAG --&gt; MAN[manifest or image index]
+  DG --&gt; MAN
+  MAN --&gt; CFG[config blob]
+  MAN --&gt; L1[layer A]
+  MAN --&gt; L2[layer B]
+  OTHER[another manifest] --&gt; L1
+  OTHER --&gt; L3[layer C]
+</pre
+          >
+          </div>
+          <p>
+            A <strong>tag</strong> is a human-friendly alias. It can be moved to
+            point to a different manifest unless your process prevents that. A
+            <strong>digest</strong> is calculated from manifest content and
+            identifies those manifest bytes. A manifest references a
+            configuration blob and one or more layer blobs. Multiple manifests
+            can reuse the same layer digest, so physical storage is deduplicated
+            within the relevant blob-store scope.
+          </p>
+          <p>
+            A multi-architecture tag may point to a manifest list or OCI image
+            index, which in turn points to platform-specific manifests. That
+            means “delete the tag” may affect only one top-level reference while
+            many referenced blobs remain live through another manifest.
+          </p>
+        </section>
+        <section id="nexus-model">
+          <h2>3. How Nexus represents Docker content</h2>
+          <p>
+            Current Sonatype documentation defines a Docker component as a
+            <strong>tagged manifest</strong>. A tag is an alias that points to a
+            manifest; a layer is a binary blob referenced by one or more
+            manifests. Tags and layers do not each become independent
+            “components” in the usage-count sense, even though tags, manifests,
+            and layers are all persisted as assets/state inside Nexus.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Docker concept</th>
+                  <th>Nexus operational meaning</th>
+                  <th>Why operators care</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Tag</td>
+                  <td>Mutable reference/alias associated with a manifest.</td>
+                  <td>
+                    Retention by tag can orphan a manifest/layers but does not
+                    imply immediate physical deletion.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Manifest</td>
+                  <td>
+                    Metadata describing config/layers; tagged manifests
+                    represent components.
+                  </td>
+                  <td>Digest pinning identifies exact manifest content.</td>
+                </tr>
+                <tr>
+                  <td>Layer</td>
+                  <td>Blob asset that can be shared across manifests.</td>
+                  <td>
+                    Deleting one tag often leaves the layer referenced
+                    elsewhere.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Manifest list / OCI index</td>
+                  <td>Top-level metadata pointing to platform manifests.</td>
+                  <td>
+                    Multi-arch cleanup must preserve all still-referenced child
+                    manifests/layers.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Client image cache</td>
+                  <td>State outside Nexus.</td>
+                  <td>
+                    A local pull can succeed without proving current repository
+                    availability or policy.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="three-repositories">
+          <h2>4. Hosted, proxy, and group remain different operating roles</h2>
+          <ul>
+            <li>
+              <strong>Hosted:</strong> authoritative destination for internal
+              pushes. Retention directly changes organization-owned registry
+              content.
+            </li>
+            <li>
+              <strong>Proxy:</strong> cache/mediation boundary for an upstream
+              registry. Deleting cached content is not the same as deleting
+              upstream content; the next allowed request may fetch it again.
+            </li>
+            <li>
+              <strong>Group:</strong> read aggregation over members. The group
+              does not make member lifecycle state identical, and member order
+              can influence which image reference wins.
+            </li>
+          </ul>
+          <p>
+            Do not troubleshoot a proxy staleness problem by deleting content
+            from a hosted member, and do not assume clearing a Docker client
+            cache invalidates the Nexus proxy cache.
+          </p>
+        </section>
+        <section id="cleanup-chain">
+          <h2>
+            5. Docker cleanup is a chain, not one “garbage collect” button
+          </h2>
+          <div class="diagram-card">
+            <pre class="mermaid">
+flowchart LR
+  SLA[retention intent] --&gt; POLICY[cleanup policy or supported targeted deletion]
+  POLICY --&gt; TAGS[old tagged components logically removed]
+  TAGS --&gt; GC[Docker - Delete unused manifests and images]
+  GC --&gt; ORPHAN[unreferenced manifests/layers soft-deleted]
+  ORPHAN --&gt; COMPACT[Admin - Compact blob store]
+  COMPACT --&gt; SPACE[physical space reclaimed]
+</pre
+          >
+          </div>
+          <p>
+            Current Sonatype guidance describes a Docker-specific sequence.
+            Cleanup policies remove old Docker components/tags according to
+            criteria. That can leave manifests and layers with no remaining tag
+            reference. The
+            <code>Docker - Delete unused manifests and images</code> task then
+            identifies and removes unreferenced Docker data. Finally, the
+            blob-store compaction/reclamation step permanently removes
+            soft-deleted blob content and returns physical capacity for
+            file-backed storage.
+          </p>
+          <div class="callout warning">
+            <strong>Digest-only retention trap.</strong> Sonatype warns that
+            Docker GC can delete manifests/layers that are pulled or pushed only
+            by digest because they are not referenced by a tag. If a digest-only
+            image must survive GC, maintain an appropriate tag/reference
+            according to your retention policy and verify current task semantics
+            before execution.
+          </div>
+        </section>
+        <section id="shared-layers">
+          <h2>6. Why deleting a 700 MB “image” may free 4 KB—or nothing yet</h2>
+          <p>
+            Suppose <code>service-a:1.0</code> and
+            <code>service-b:1.0</code> share a 650 MB base layer. Removing
+            <code>service-a:1.0</code> may only remove the tag/manifest
+            relationship. The 650 MB layer remains referenced by
+            <code>service-b:1.0</code>. Even when no manifest references it,
+            Nexus may still retain the soft-deleted blob until the appropriate
+            garbage-collection and compaction stages run.
+          </p>
+          <p>
+            Therefore, three numbers must be separated: logical components/tags,
+            unreferenced Docker assets, and physical blob-store bytes. A
+            capacity dashboard that conflates them creates false incident
+            reports.
+          </p>
+        </section>
+        <section id="search">
+          <h2>7. Search and discovery have several different scopes</h2>
+          <p>
+            Nexus UI/Search API searches
+            <em>content already known to Nexus</em>: hosted images plus content
+            previously proxied/cached. Current Nexus search is SQL-backed and
+            exposes Docker-specific fields such as image name, image tag, and
+            layer ID. The Docker Registry API can list tags for a known
+            repository name, subject to implementation limits. The Docker CLI's
+            <code>docker search</code> is not a universal registry catalog
+            client; Sonatype documents it primarily around Docker Hub/group
+            behavior and older V1 search support.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tool</th>
+                  <th>Best question</th>
+                  <th>Important limitation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Nexus UI / <code>/service/rest/v1/search</code></td>
+                  <td>
+                    What Docker components/assets are indexed in this Nexus?
+                  </td>
+                  <td>
+                    Search only knows local/cached content and follows current
+                    SQL search rules.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>/v2/NAME/tags/list</code></td>
+                  <td>
+                    Which tags does this registry endpoint expose for a known
+                    name?
+                  </td>
+                  <td>
+                    Not a full enterprise search engine; tag-list
+                    limits/pagination vary.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>docker search</code></td>
+                  <td>
+                    Search a registry that implements the expected search
+                    endpoint.
+                  </td>
+                  <td>
+                    Docker client is preconfigured around Docker Hub and search
+                    behavior is not equivalent to Registry V2 discovery.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="http">
+          <h2>8. A Docker pull is many HTTP requests</h2>
+          <p>
+            A single <code>docker pull</code> normally causes a sequence such as
+            <code>/v2/</code> capability/authentication checks, bearer-token
+            exchange, manifest HEAD/GET, config download, and multiple blob
+            GETs. Nexus metrics therefore count far more HTTP requests than
+            “number of image pulls.”
+          </p>
+          <pre><code class="language-text">Client → GET /v2/
+Registry → 401 + WWW-Authenticate: Bearer ...
+Client → token request
+Client → HEAD/GET /v2/learner-example/demo/manifests/1.0
+Client → GET /v2/learner-example/demo/blobs/sha256:...
+Client → GET /v2/learner-example/demo/blobs/sha256:...</code></pre>
+          <p>
+            A <code>401</code> may be a normal authentication challenge, not
+            necessarily a failure. The final client outcome, token realm,
+            privileges, and request path matter.
+          </p>
+        </section>
+        <section id="auth">
+          <h2>9. Authentication is a protocol boundary</h2>
+          <p>
+            Self-hosted Docker access requires the Docker Bearer Token Realm for
+            Docker clients. Repository-view privileges still determine what the
+            user can read/write. A browser session or SAML/OIDC login does not
+            automatically make a Docker daemon authenticated. Keep
+            noninteractive client credentials scoped and out of image
+            references, shell history, and screenshots.
+          </p>
+        </section>
+        <section id="proxy">
+          <h2>
+            10. Proxy freshness, remote health, and rate limits are separate
+            mechanisms
+          </h2>
+          <p>
+            A Docker proxy can serve cached manifests/layers when appropriate,
+            fetch remote metadata when stale, and be affected by upstream
+            authentication/rate limits. A <code>429 Too Many Requests</code> may
+            originate upstream or from another protective layer. A stale tag can
+            be caused by Nexus proxy metadata/cache behavior, a Docker client
+            cache, an upstream registry that moved the tag, or a reverse
+            proxy/CDN in front of Nexus.
+          </p>
+          <p>
+            Diagnosis should record the exact image reference, resolved digest,
+            repository member, Nexus cache state, remote response, and client
+            cache state before invalidating anything.
+          </p>
+        </section>
+        <section id="routing">
+          <h2>11. Path-based routing is the preferred modern Nexus model</h2>
+          <p>
+            Current Sonatype Docker documentation recommends path-based routing
+            for modern deployments. A client reference looks like:
+          </p>
+          <pre><code class="language-text">nexus.example.invalid/docker-group/learner-example/demo:1.0</code></pre>
+          <p>
+            The repository name is part of the registry path, without the usual
+            <code>/repository/</code> prefix used by generic HTTP access. Port
+            connectors are legacy and consume server resources; Sonatype
+            recommends limiting them. Subdomain routing is Pro-only. Do not mix
+            routing methods casually during migration.
+          </p>
+        </section>
+        <section id="oci">
+          <h2>
+            12. Docker repository format versus native OCI repository format
+          </h2>
+          <p>
+            Do not collapse these terms. Docker repositories support
+            container-image workflows and OCI image-spec compatibility. Starting
+            in the 3.94 line, Nexus also offers a native
+            <strong>OCI repository format</strong> (Community and Pro
+            self-hosted) for images and broader OCI artifacts such as SBOMs,
+            signatures, attestations, and Helm content through OCI-compatible
+            tools. Chapter 24 focuses on Docker registry operations; use native
+            OCI repositories deliberately when your artifact model requires
+            them.
+          </p>
+        </section>
+        <section id="read-only">
+          <h2>13. Read-only inspection before mutation</h2>
+          <p>
+            On a disposable instance, collect the following before touching
+            retention:
+          </p>
+          <pre><code class="language-bash"># Nexus REST inspection; inject a disposable scoped credential at runtime.
+curl -fsS "$NEXUS_URL/service/rest/v1/status"
+curl -fsS "$NEXUS_URL/service/rest/v1/repositories"
+curl -fsS "$NEXUS_URL/service/rest/v1/search?repository=ch24-docker-hosted&amp;format=docker"
+
+# Registry endpoint inspection through the configured Docker route.
+curl -i "$REGISTRY/v2/"
+curl -fsS "$REGISTRY/v2/learner-example/ch24-demo/tags/list"</code></pre>
+          <p>
+            Depending on your authentication configuration, the Registry request
+            may intentionally return <code>401</code> plus
+            <code>WWW-Authenticate</code>. Preserve that header; it is useful
+            evidence. Never paste a bearer token into lesson notes.
+          </p>
+        </section>
+        <section id="state">
+          <h2>14. State map for troubleshooting</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>State</th>
+                  <th>Where</th>
+                  <th>Operator question</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Repository config / component metadata</td>
+                  <td>Nexus database</td>
+                  <td>
+                    Which repository, tag, manifest/component, policy,
+                    privilege, task?
+                  </td>
+                </tr>
+                <tr>
+                  <td>Layer/config/manifest bytes</td>
+                  <td>Blob store</td>
+                  <td>Referenced, soft-deleted, physically reclaimed?</td>
+                </tr>
+                <tr>
+                  <td>Proxy metadata/cache</td>
+                  <td>Nexus repository state</td>
+                  <td>Was the remote queried? Which digest is cached?</td>
+                </tr>
+                <tr>
+                  <td>Docker client cache</td>
+                  <td>Developer/CI host</td>
+                  <td>Did the client contact Nexus at all?</td>
+                </tr>
+                <tr>
+                  <td>Reverse proxy/TLS</td>
+                  <td>Ingress/network layer</td>
+                  <td>
+                    Were upload size/timeouts/headers/auth paths preserved?
+                  </td>
+                </tr>
+                <tr>
+                  <td>Upstream rate/freshness</td>
+                  <td>Remote registry</td>
+                  <td>Is the failure or tag move outside Nexus?</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="knowledge">
+          <h2>15. Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Two tags point to the same manifest. How many distinct
+                manifests are represented?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                One manifest. The two tags are aliases to the same manifest
+                digest; Nexus component counting can therefore differ from raw
+                tag count.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why can deleting one tag fail to reclaim a shared base
+                layer?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Another manifest may still reference the layer. Even after the
+                last reference disappears, physical bytes may remain until
+                Docker garbage collection and blob-store compaction/reclamation
+                complete.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A Docker pull returns HTTP 401 on the first /v2/ request. Is
+                that automatically an authentication failure?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. A 401 with a WWW-Authenticate Bearer challenge is part of
+                the normal Docker token flow. Diagnose whether the client
+                successfully obtains a token and whether repository privileges
+                then allow the operation.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is Last Downloaded unsafe for Docker cleanup on Nexus
+                3.95.2?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Sonatype documents an open issue where manifest HEAD requests do
+                not refresh lastDownloaded, so active images can appear stale
+                and become cleanup candidates.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Does Nexus Search show every image available from a remote
+                Docker registry?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. Nexus searches content already stored/indexed locally,
+                including hosted content and proxy content that has been cached.
+                It is not a complete remote-registry catalog.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>16. Summary and next step</h2>
+          <p>
+            Docker registry operations are graph operations. Tags point to
+            manifests; manifests reference configs/layers; layers may be shared;
+            proxy state and client caches are different; and cleanup proceeds
+            through logical selection/deletion, Docker-specific orphan cleanup,
+            and later physical reclamation. Lesson 2 turns that model into a
+            disposable workflow and captures before/after evidence rather than
+            trusting disk usage alone.
+          </p>
+        </section>
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <ul>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/docker-registry.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Docker Registry</a
+              >
+              — Docker repository routing, Registry API support, manifest lists,
+              OCI image support, and current path-based routing guidance.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/repository-manager-concepts.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Repository Manager Concepts</a
+              >
+              — Docker component/tag/manifest/layer relationships and storage
+              implications.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/cleanup-policies.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Cleanup Policies</a
+              >
+              — Docker cleanup sequence, policy criteria, soft deletion, Docker
+              GC interaction, and blob-store compaction.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/tasks.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Tasks</a
+              >
+              — current Docker GC, incomplete-upload cleanup, repository
+              cleanup, and compact blob-store task behavior.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/searching.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Searching Docker</a
+              >
+              — Docker client search constraints and Nexus repository/group
+              behavior.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/searching-for-components.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Searching for Components</a
+              >
+              — current SQL-backed Nexus search and Docker-specific
+              image/tag/layer criteria.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/search-api.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Search API</a
+              >
+              — supported paginated search endpoints and format-specific fields.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/docker-authentication.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Docker Authentication</a
+              >
+              — Docker Bearer Token Realm and client authentication flow.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/proxy-repository-for-docker.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Proxy Repository for Docker</a
+              >
+              — Docker Hub/private ECR proxy behavior and current
+              upstream-authentication options.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/sonatype-nexus-repository-3-95-0-release-notes.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository 3.95.0–3.95.2 Release Notes</a
+              >
+              — dated release line and open Docker <code>HEAD</code>/<code
+                >lastDownloaded</code
+              >
+              cleanup issue.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/sonatype-nexus-repository-3-91-0-release-notes.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository 3.91.x Release Notes</a
+              >
+              — Docker manifest/tag integrity and garbage-collection correctness
+              fixes relevant to modern behavior.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/oci-repositories.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: OCI Repositories</a
+              >
+              — native OCI hosted/proxy/group support introduced in the 3.94
+              line; separate it from the older Docker repository format.
+            </li>
+            <li>
+              <a
+                href="https://github.com/sonatype/nexus-public/releases/tag/release-3.95.2-01"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype nexus-public 3.95.2-01 release</a
+              >
+              — dated patch baseline used in this chapter.
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="../Chapter23/Lesson5.html">Previous chapter</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson2.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  
+    <script data-nexus-toc-normalizer>
+      document.addEventListener("DOMContentLoaded", () => {
+        requestAnimationFrame(() => {
+          document.querySelectorAll("[data-on-page-toc] a").forEach((link) => {
+            let label = link.textContent.trim().replace(/^\d{1,2}\s*(?:[.)]|[-–—])\s*/, "");
+            if (/^[1-5]\d\d(?:\b|\/)/.test(label)) label = `HTTP ${label}`;
+            link.textContent = label;
+          });
+        });
+      }, { once: true });
+    </script>
+</body>
+</html>

@@ -1,0 +1,2384 @@
+<!doctype html>
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Build a precise Nexus migration mental model around OrientDB sunset, H2/PostgreSQL targets, Database Migrator versus Instance Migrator, blob-state boundaries, compatibility gates, validation, and rollback."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Database and Instance Migration: OrientDB Sunset, H2/PostgreSQL Paths, and
+      Migrator Workflows: Concepts, Architecture, and Mental Model | DevOps
+      Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="nexus-repository-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg
+          ></a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">NX</span>
+            <div>
+              <small>Course 08</small
+              ><strong>Nexus Repository Complete Course</strong>
+            </div></a
+          >
+          <button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 150 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="Nexus Repository course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Artifact Repository Foundations, Package Supply
+              Chains, Components, Assets, and Repository Managers
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Artifact Repository Foundations, Package Supply
+                Chains, Components, Assets, and Repository Managers:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifact Repository
+                Foundations, Package Supply Chains, Components, Assets, and
+                Repository Managers</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Nexus Repository Editions, Deployment Models,
+              Architecture, Installation, and Java Runtime Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Nexus Repository Editions, Deployment Models,
+                Architecture, Installation, and Java Runtime Planning:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Nexus Repository Editions,
+                Deployment Models, Architecture, Installation, and Java Runtime
+                Planning</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>User Interface, Search, Browse, Components, Assets,
+              Tags, Uploads, and Repository Navigation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>User Interface, Search, Browse, Components,
+                Assets, Tags, Uploads, and Repository Navigation: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — User Interface, Search, Browse,
+                Components, Assets, Tags, Uploads, and Repository Navigation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Hosted, Proxy, and Group Repositories: Design
+              Patterns, Routing, Caching, and Promotion Flows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Hosted, Proxy, and Group Repositories: Design
+                Patterns, Routing, Caching, and Promotion Flows: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Hosted, Proxy, and Group
+                Repositories: Design Patterns, Routing, Caching, and Promotion
+                Flows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Blob Stores, Storage Layout, Database Choices,
+              Capacity Planning, and Data Separation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Concepts, Architecture,
+                and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Guided Hands-On Workflow
+                and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Configuration, Design
+                Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Blob Stores, Storage Layout, Database Choices,
+                Capacity Planning, and Data Separation: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Blob Stores, Storage Layout,
+                Database Choices, Capacity Planning, and Data Separation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Maven 2 Repositories, Snapshots, Releases,
+              Metadata, Checksums, and Maven Client Configuration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Maven 2 Repositories, Snapshots, Releases,
+                Metadata, Checksums, and Maven Client Configuration:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Maven 2 Repositories,
+                Snapshots, Releases, Metadata, Checksums, and Maven Client
+                Configuration</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>npm Repositories, Scoped Packages, Metadata,
+              Tokens, Proxying, and JavaScript Supply Chains
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>npm Repositories, Scoped Packages, Metadata,
+                Tokens, Proxying, and JavaScript Supply Chains: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — npm Repositories, Scoped
+                Packages, Metadata, Tokens, Proxying, and JavaScript Supply
+                Chains</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Docker and OCI Repositories, Connectors, Registry
+              Paths, Authentication, Layers, and Image Metadata
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Docker and OCI Repositories, Connectors,
+                Registry Paths, Authentication, Layers, and Image Metadata:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker and OCI Repositories,
+                Connectors, Registry Paths, Authentication, Layers, and Image
+                Metadata</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>PyPI, Conda, Python Package Indexes, Proxy
+              Behavior, Uploads, and Metadata Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>PyPI, Conda, Python Package Indexes, Proxy
+                Behavior, Uploads, and Metadata Management: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — PyPI, Conda, Python Package
+                Indexes, Proxy Behavior, Uploads, and Metadata Management</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>NuGet Repositories, API Keys, Feeds, Symbols,
+              Proxying, and .NET Package Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Concepts, Architecture,
+                and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Guided Hands-On Workflow
+                and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Configuration, Design
+                Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>NuGet Repositories, API Keys, Feeds, Symbols,
+                Proxying, and .NET Package Workflows: Diagnostics, Failure
+                Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — NuGet Repositories, API Keys,
+                Feeds, Symbols, Proxying, and .NET Package Workflows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>APT, Yum, Raw, RubyGems, Composer, and
+              Operating-System or Generic Artifact Formats
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>APT, Yum, Raw, RubyGems, Composer, and
+                Operating-System or Generic Artifact Formats: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — APT, Yum, Raw, RubyGems,
+                Composer, and Operating-System or Generic Artifact Formats</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Conan, Ansible Galaxy, Terraform, Swift, and
+              Emerging Repository Formats
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Concepts, Architecture, and Mental
+                Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Guided Hands-On Workflow and Core
+                Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Configuration, Design Choices, and
+                Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Conan, Ansible Galaxy, Terraform, Swift, and
+                Emerging Repository Formats: Diagnostics, Failure Modes,
+                Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Conan, Ansible Galaxy,
+                Terraform, Swift, and Emerging Repository Formats</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Proxy Caching, Negative Cache, Remote Storage,
+              Routing Rules, Repository Health, and Failure Behavior
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Proxy Caching, Negative Cache, Remote Storage,
+                Routing Rules, Repository Health, and Failure Behavior:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Proxy Caching, Negative Cache,
+                Remote Storage, Routing Rules, Repository Health, and Failure
+                Behavior</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Content Selectors, Repository Targets, Fine-Grained
+              Privileges, and Path-Level Authorization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Content Selectors, Repository Targets,
+                Fine-Grained Privileges, and Path-Level Authorization:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Content Selectors, Repository
+                Targets, Fine-Grained Privileges, and Path-Level
+                Authorization</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Users, Roles, Privileges, Realms, Anonymous Access,
+              User Tokens, and Least-Privilege Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Users, Roles, Privileges, Realms, Anonymous
+                Access, User Tokens, and Least-Privilege Design: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Users, Roles, Privileges,
+                Realms, Anonymous Access, User Tokens, and Least-Privilege
+                Design</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>LDAP, SAML, OIDC, External Identity, Credential
+              Rotation, and Authentication Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>LDAP, SAML, OIDC, External Identity, Credential
+                Rotation, and Authentication Troubleshooting: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — LDAP, SAML, OIDC, External
+                Identity, Credential Rotation, and Authentication
+                Troubleshooting</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>TLS, Reverse Proxies, Context Paths, HTTP Settings,
+              Network Boundaries, and Secure Exposure
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>TLS, Reverse Proxies, Context Paths, HTTP
+                Settings, Network Boundaries, and Secure Exposure: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — TLS, Reverse Proxies, Context
+                Paths, HTTP Settings, Network Boundaries, and Secure Exposure</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Cleanup Policies, Retention, Component Age,
+              Last-Downloaded Rules, Preview, and Storage Reclamation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Cleanup Policies, Retention, Component Age,
+                Last-Downloaded Rules, Preview, and Storage Reclamation:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Cleanup Policies, Retention,
+                Component Age, Last-Downloaded Rules, Preview, and Storage
+                Reclamation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+              Blob Maintenance, and Operational Housekeeping
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Guided Hands-On
+                Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Configuration,
+                Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Scheduled Tasks, Repair Jobs, Metadata Rebuilds,
+                Blob Maintenance, and Operational Housekeeping: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Scheduled Tasks, Repair Jobs,
+                Metadata Rebuilds, Blob Maintenance, and Operational
+                Housekeeping</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>REST API, Repository Provisioning, Security
+              Automation, Pagination, and Infrastructure-as-Code Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>REST API, Repository Provisioning, Security
+                Automation, Pagination, and Infrastructure-as-Code Patterns:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — REST API, Repository
+                Provisioning, Security Automation, Pagination, and
+                Infrastructure-as-Code Patterns</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Webhooks, Jenkins and CI Integrations, Maven
+              Deployments, Build Promotion, and Event Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Webhooks, Jenkins and CI Integrations, Maven
+                Deployments, Build Promotion, and Event Automation: Diagnostics,
+                Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Webhooks, Jenkins and CI
+                Integrations, Maven Deployments, Build Promotion, and Event
+                Automation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Sonatype IQ Integration, Component Intelligence,
+              Quarantine, Policy Evaluation, and Procurement Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Sonatype IQ Integration, Component Intelligence,
+                Quarantine, Policy Evaluation, and Procurement Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Sonatype IQ Integration,
+                Component Intelligence, Quarantine, Policy Evaluation, and
+                Procurement Controls</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>SBOMs, Component Provenance, Vulnerability
+              Governance, Repository Firewall Concepts, and Supply-Chain Risk
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>SBOMs, Component Provenance, Vulnerability
+                Governance, Repository Firewall Concepts, and Supply-Chain Risk:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SBOMs, Component Provenance,
+                Vulnerability Governance, Repository Firewall Concepts, and
+                Supply-Chain Risk</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Docker Registry Operations, Garbage Collection,
+              Retention, Search, Proxying, and Production Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Docker Registry Operations, Garbage Collection,
+                Retention, Search, Proxying, and Production Troubleshooting:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Registry Operations,
+                Garbage Collection, Retention, Search, Proxying, and Production
+                Troubleshooting</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Backup, Restore, Configuration Export, Blob
+              Recovery, Disaster Scenarios, and Recovery Validation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Backup, Restore, Configuration Export, Blob
+                Recovery, Disaster Scenarios, and Recovery Validation:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Backup, Restore, Configuration
+                Export, Blob Recovery, Disaster Scenarios, and Recovery
+                Validation</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>26</span>Database and Instance Migration: OrientDB Sunset,
+              H2/PostgreSQL Paths, and Migrator Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                 aria-current="page"><span>01</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Database and Instance Migration: OrientDB
+                Sunset, H2/PostgreSQL Paths, and Migrator Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Database and Instance
+                Migration: OrientDB Sunset, H2/PostgreSQL Paths, and Migrator
+                Workflows</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Upgrade Planning, Version Support, Breaking
+              Changes, Java Runtime Upgrades, and Rollback Strategy
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy: Concepts,
+                Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Upgrade Planning, Version Support, Breaking
+                Changes, Java Runtime Upgrades, and Rollback Strategy:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Upgrade Planning, Version
+                Support, Breaking Changes, Java Runtime Upgrades, and Rollback
+                Strategy</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>High Availability, Resiliency, Shared Storage, Blob
+              Store Groups, Node Coordination, and Failure Recovery
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Guided Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>High Availability, Resiliency, Shared Storage,
+                Blob Store Groups, Node Coordination, and Failure Recovery:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — High Availability, Resiliency,
+                Shared Storage, Blob Store Groups, Node Coordination, and
+                Failure Recovery</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Logging, Metrics, Support ZIPs, Request Auditing,
+              Performance Tuning, and Capacity Diagnostics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Concepts, Architecture, and Mental Model</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics: Guided
+                Hands-On Workflow and Core Operations</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Configuration, Design Choices, and Tradeoffs</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Logging, Metrics, Support ZIPs, Request
+                Auditing, Performance Tuning, and Capacity Diagnostics:
+                Diagnostics, Failure Modes, Security, and Performance</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Logging, Metrics, Support ZIPs,
+                Request Auditing, Performance Tuning, and Capacity
+                Diagnostics</a>
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Production Capstone: Design, Secure, Automate,
+              Migrate, and Recover an Enterprise Artifact Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform:
+                Requirements, Constraints, and Target Architecture</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform:
+                Implementation and Automation Build-Out</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Security,
+                Governance, and Reliability Validation</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Failure
+                Injection, Troubleshooting, and Recovery Drill</a>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Production Capstone: Design, Secure, Automate,
+                Migrate, and Recover an Enterprise Artifact Platform: Final
+                Operational Review and Handoff</a>
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Nexus Repository</a><span>/</span
+          ><span>Chapter 26 · Lesson 01</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 26</span><i></i><span>Lesson 01</span><i></i
+            ><span>220–300 min</span>
+          </div>
+          <h1>
+            Database and Instance Migration: OrientDB Sunset, H2/PostgreSQL
+            Paths, and Migrator Workflows: Concepts, Architecture, and Mental
+            Model
+          </h1>
+          <p>
+            Migration is not “copy the database and hope.” Nexus migration is a
+            controlled transition from a precisely identified source state to a
+            supported target state. The source Nexus version, database engine,
+            Java runtime, blob location, edition, repository formats, secrets,
+            and target topology determine which Sonatype tool is valid and what
+            must be validated before cutover.
+          </p>
+          <div class="lesson-tags">
+            <span>OrientDB sunset</span><span>H2 / PostgreSQL</span
+            ><span>Database Migrator</span><span>Instance Migrator</span
+            ><span>Compatibility gates</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Explain why OrientDB, H2, PostgreSQL, Nexus version, Java runtime,
+              and blob stores are separate compatibility dimensions.
+            </li>
+            <li>
+              Distinguish Database Migrator from Instance Migrator by topology,
+              downtime model, state moved, and rollback implications.
+            </li>
+            <li>
+              Describe the final OrientDB migration gate and why legacy sources
+              must remain on the 3.70.5 line until migration.
+            </li>
+            <li>
+              Identify PostgreSQL ownership, schema, extension, capacity, and
+              credential prerequisites before attempting migration.
+            </li>
+            <li>
+              Define a migration acceptance model based on configuration,
+              repository/component counts, checksums, security, clients, logs,
+              and post-migration rebuild completion.
+            </li>
+          </ul>
+        </section>
+        <div class="callout warning">
+          <strong>Dated baseline (27 August 2026).</strong> Modern examples use
+          Nexus Repository 3.95.2-01 with Java 21 as the target/reference line.
+          Legacy OrientDB migration examples intentionally pin the source to the
+          final supported OrientDB line, 3.70.5, and do not pretend that 3.95.x
+          can open an OrientDB data directory.
+        </div>
+        <div class="callout warning">
+          <strong>Tool boundary.</strong> Database Migrator changes the database
+          backing a self-hosted deployment and requires Nexus to be shut down;
+          it does not move repository blob content. Instance Migrator is a
+          separate live source→target tool that migrates configuration plus
+          hosted assets and tracks migration state. Choose the tool from the
+          migration topology, not from familiarity with a command.
+        </div>
+        <div class="callout warning">
+          <strong>Recovery checkpoint first.</strong> Before any migration, take
+          and verify a supported backup/recovery set for the source
+          database/configuration and blob stores. Keep the source untouched
+          until the target passes validation. Do not copy database files across
+          incompatible Nexus versions, rewrite rows, edit blob metadata, or
+          downgrade an already-upgraded data directory as a rollback shortcut.
+        </div>
+        <section id="problem">
+          <h2>
+            1. The practical problem: the database is part of the product state
+          </h2>
+          <p>
+            Chapter 25 established that Nexus recovery depends on a coherent
+            database/configuration and blob-store recovery set. Migration adds a
+            second constraint:
+            <strong
+              >the source and target must be connected by a supported migration
+              path</strong
+            >. A database that is healthy on one Nexus release is not a portable
+            file format that can be dropped under any later release. Schema
+            evolution, Java requirements, storage metadata, security secrets,
+            and format-specific generated metadata all participate in the
+            transition.
+          </p>
+          <p>
+            The safe question is therefore not “How do I move
+            <code>$data-dir/db</code>?” It is: “What exact source state do I
+            have, what exact target state do I need, which current Sonatype
+            migration workflow connects them, and how will I prove the result?”
+          </p>
+        </section>
+        <section id="mental-model">
+          <h2>2. Migration mental model</h2>
+          <div class="diagram-card">
+            <div class="diagram-label">
+              Source evidence → compatibility gate → supported migrator → target
+              validation → cutover
+            </div>
+            <pre class="mermaid">
+flowchart TD
+  S[Source instance
+version + edition + Java]
+  D[(Source DB
+OrientDB / H2 / PostgreSQL)]
+  B[(Blob stores
+file / object)]
+  G{Compatibility gate
+source + target + tool}
+  DM[Database Migrator
+offline DB transformation]
+  IM[Instance Migrator
+live config + hosted assets]
+  T[Target instance
+H2 / PostgreSQL]
+  V[Validation
+config + counts + hashes + auth + clients]
+  C[Controlled cutover]
+  R[Rollback checkpoint
+untouched source + matching blobs]
+  S --&gt; G
+  D --&gt; G
+  B --&gt; G
+  G --&gt;|same deployment / DB platform change| DM
+  G --&gt;|source → new target / content movement| IM
+  DM --&gt; T
+  IM --&gt; T
+  T --&gt; V --&gt; C
+  G --&gt; R
+</pre
+            >
+          </div>
+          <p>
+            The diagram has two different migration engines because they solve
+            different problems. Database Migrator transforms database state for
+            a self-hosted deployment. Instance Migrator treats the source and
+            target as separate running Nexus instances and moves supported
+            configuration and hosted repository assets through the product
+            interfaces while tracking transfer state.
+          </p>
+        </section>
+        <section id="state">
+          <h2>3. Inventory the source before choosing a tool</h2>
+          <p>Capture a source manifest before any migration action:</p>
+          <pre><code class="language-yaml">source:
+  nexusVersion: "3.70.5"        # example legacy source
+  edition: "Community"
+  java: "11"                    # legacy OrientDB source only
+  database: "OrientDB"
+  blobStores:
+    - name: "default"
+      type: "file"
+      location: "&lt;documented-source-path&gt;"
+  repositories:
+    hosted: 4
+    proxy: 3
+    group: 2
+  security:
+    localUsers: 7
+    roles: 11
+    externalIdentity: "LDAP"
+  evidence:
+    componentCount: 12543
+    sampleSha256: "SYNTHETIC-EXPECTED-HASH"
+</code></pre>
+          <p>
+            The values are evidence, not decoration. They drive tool selection,
+            target preparation, maintenance windows, secret handling, and
+            acceptance criteria.
+          </p>
+        </section>
+        <section id="orient">
+          <h2>4. OrientDB is a legacy source state, not a modern target</h2>
+          <p>
+            OrientDB entered extended maintenance in 2024 and is officially
+            sunset. Nexus Repository
+            <strong>3.70.x is the last line that supports OrientDB</strong>;
+            3.71.0 and later do not. A legacy OrientDB deployment that needs to
+            move forward must first reach the supported migration source
+            state—currently 3.70.5—while staying on the Java level that OrientDB
+            supports. Only after the database transition does the instance move
+            to newer Nexus/Java requirements.
+          </p>
+          <p>
+            This sequencing matters. Starting a 3.95.x binary against an
+            OrientDB data directory is not an upgrade strategy. Neither is
+            upgrading the legacy source to a Java release its database cannot
+            use.
+          </p>
+        </section>
+        <section id="tools">
+          <h2>5. Database Migrator versus Instance Migrator</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Dimension</th>
+                <th>Database Migrator</th>
+                <th>Instance Migrator</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Primary purpose</td>
+                <td>Change database platform for self-hosted Nexus</td>
+                <td>
+                  Move configuration/content from one Nexus instance to another
+                </td>
+              </tr>
+              <tr>
+                <td>Execution model</td>
+                <td>Offline; Nexus shut down</td>
+                <td>Live; source and target running</td>
+              </tr>
+              <tr>
+                <td>State moved</td>
+                <td>Database schema/metadata; blob content is not migrated</td>
+                <td>Supported configuration plus hosted repository assets</td>
+              </tr>
+              <tr>
+                <td>Resume/retry</td>
+                <td>Single migration execution</td>
+                <td>Persistent state, polling, transfer retry/logs</td>
+              </tr>
+              <tr>
+                <td>Useful for blob-location change</td>
+                <td>
+                  Only if target can still use/copy the correct blob content
+                  through a separate supported storage plan
+                </td>
+                <td>
+                  Yes, when content must move between source/target blob
+                  locations
+                </td>
+              </tr>
+              <tr>
+                <td>Legacy OrientDB</td>
+                <td>
+                  Supported documented OrientDB→H2/PostgreSQL database
+                  migrations, version-gated
+                </td>
+                <td>
+                  Current source gate 3.70.5; target 3.90.2+ per current
+                  Instance Migrator docs
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+        <section id="dbm">
+          <h2>
+            6. Database Migrator: metadata transformation, not blob transfer
+          </h2>
+          <p>
+            For a current H2→PostgreSQL migration, Sonatype’s documented path
+            is: back up H2, prepare PostgreSQL, shut down Nexus, run the current
+            Database Migrator from the data database directory with the target
+            JDBC connection, run the documented PostgreSQL maintenance step,
+            then start Nexus and allow required post-migration rebuild tasks to
+            complete.
+          </p>
+          <div class="callout warning">
+            <strong>Critical:</strong> the Database Migrator documentation
+            explicitly states that repository content is not migrated. If the
+            blob store location changes, plan that content movement separately
+            or choose a topology/tool that migrates assets. Never assume
+            matching component counts mean the target has the bytes.
+          </div>
+        </section>
+        <section id="im">
+          <h2>7. Instance Migrator: a source→target migration</h2>
+          <p>
+            Current Instance Migrator documentation lists self-hosted OrientDB
+            3.70.5 as the source and a self-hosted 3.90.2+ target using H2 or
+            PostgreSQL as supported scenarios, with Java 25 required for the
+            migrator tool itself. Both instances are running. The utility
+            exports configuration-as-code, queues hosted assets, maintains
+            per-repository migration state, and can continue polling for new
+            assets while the migration is in progress.
+          </p>
+          <p>
+            That does not mean every Nexus state object is identical after
+            migration. Current target-specific documentation lists exclusions
+            and manual follow-up such as LDAP connection configuration, realms,
+            audit logs, some format-specific metadata, and other target
+            constraints. Read the target-specific workflow instead of relying
+            only on a high-level feature list.
+          </p>
+        </section>
+        <section id="postgres">
+          <h2>8. PostgreSQL is not “a host and password”</h2>
+          <p>
+            Current Sonatype requirements expect the Nexus database user to
+            <strong>own the database</strong>. Upgrades/schema changes require
+            ownership, and a non-owner user is not a supported configuration.
+            PostgreSQL also requires the <code>pg_trgm</code> extension. If a
+            separate schema is used, the Nexus user needs appropriate
+            <code>USAGE</code>/<code>CREATE</code> permissions and the schema
+            must be on the user’s search path.
+          </p>
+          <pre><code class="language-sql">-- Disposable example only; choose locale/settings for your platform.
+CREATE USER nexus_lab WITH PASSWORD 'password-FAKE_DO_NOT_USE';
+CREATE DATABASE nexus_lab OWNER nexus_lab ENCODING 'UTF8';
+\c nexus_lab
+CREATE SCHEMA nexus AUTHORIZATION nexus_lab;
+CREATE EXTENSION pg_trgm SCHEMA nexus;
+</code></pre>
+          <p>
+            In a real environment, database creation belongs to the DBA/platform
+            control plane and credentials belong in a secret store—not in lesson
+            files or shell history.
+          </p>
+        </section>
+        <section id="capacity">
+          <h2>9. Migration needs temporary capacity</h2>
+          <p>
+            Current Database Migrator guidance calls for substantial temporary
+            resources: at least 16 GB available RAM and roughly three times the
+            database-directory size in disk headroom, with a minimum
+            temporary-space expectation. Treat those as preflight gates, not
+            after-the-fact tuning tips. A migration that fills the source
+            filesystem can turn a controlled change into a recovery incident.
+          </p>
+        </section>
+        <section id="post">
+          <h2>10. “Migrator exited successfully” is not the finish line</h2>
+          <p>
+            After database migration, Nexus runs rebuild/normalization work for
+            browse/search and other internal derived state. Some formats require
+            additional metadata rebuild operations. Do not restart repeatedly or
+            open production traffic while those required post-migration tasks
+            are incomplete. Record task history/logs and wait for a stable
+            target before acceptance testing.
+          </p>
+        </section>
+        <section id="rollback">
+          <h2>11. Rollback is a state-consistency problem</h2>
+          <p>
+            Database Migrator is designed to leave the original source database
+            unchanged, which is useful as a checkpoint. But once the migrated
+            target starts accepting writes, database and blob content diverge
+            from the source checkpoint. Reverting to an earlier database
+            therefore requires the
+            <strong>matching pre-migration blob state</strong> as well. The same
+            principle applies to side-by-side cutover: preserve the source,
+            freeze/route writes deliberately, and know exactly which
+            post-cutover writes would be lost on rollback.
+          </p>
+        </section>
+        <section id="accept">
+          <h2>12. Acceptance ladder</h2>
+          <ol>
+            <li>
+              Target starts on the intended Nexus/Java/database combination.
+            </li>
+            <li>
+              Repository definitions, blob-store mappings, cleanup/routing
+              policies, users/roles/privileges, and external-identity
+              configuration are accounted for.
+            </li>
+            <li>
+              Hosted component/asset counts are within explained expectations.
+            </li>
+            <li>
+              Sample/critical assets resolve and SHA-256 values match the source
+              evidence.
+            </li>
+            <li>
+              Proxy/group behavior is tested as behavior, not inferred from
+              hosted counts.
+            </li>
+            <li>
+              Least-privilege users can read/write only what the design permits.
+            </li>
+            <li>Browse/search/format metadata rebuilds complete.</li>
+            <li>Logs/tasks show no unresolved migration failures.</li>
+            <li>
+              A controlled client request succeeds against the target endpoint.
+            </li>
+            <li>
+              Rollback remains possible until the acceptance decision is signed
+              off.
+            </li>
+          </ol>
+        </section>
+        <section id="devops">
+          <h2>13. Why this matters in DevOps</h2>
+          <p>
+            A repository migration sits in the release path for every consumer
+            that resolves dependencies or images. Treating migration as an
+            audited change—with source evidence, compatibility gates, rehearsed
+            rollback, deterministic validation, and explicit cutover—turns it
+            from a risky “storage maintenance” event into normal platform
+            engineering.
+          </p>
+        </section>
+        <section id="knowledge">
+          <h2>14. Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why can’t you simply copy an OrientDB directory into Nexus
+                3.95.x?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Because 3.71.0 and later do not support OrientDB; migration must
+                follow the supported 3.70.5 source path to H2/PostgreSQL or a
+                current Instance Migrator target.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Which tool is the better fit for H2→PostgreSQL in the same
+                self-hosted deployment?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Database Migrator, because the core change is the database
+                platform. Blob content is not moved by that utility.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p><strong>When is Instance Migrator more appropriate?</strong></p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                When moving from a source Nexus instance to a separate target
+                instance, especially when configuration and hosted assets/blob
+                location also need to move and resumable transfer is useful.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p><strong>Why is PostgreSQL database ownership a gate?</strong></p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Sonatype requires the Nexus database user to own the database
+                because upgrades and schema changes need ownership privileges; a
+                non-owner configuration is not supported.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is the original database alone not a complete rollback
+                point after target writes begin?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Because blob/database state can diverge. A rollback needs a
+                matching pre-migration blob checkpoint and a defined treatment
+                of writes made after cutover.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>15. Summary and bridge</h2>
+          <p>
+            You now have the migration mental model: inventory first, choose the
+            tool from topology, respect legacy and target version gates, prepare
+            PostgreSQL correctly, preserve coherent rollback state, and validate
+            beyond a successful process exit. Lesson 2 turns that model into a
+            disposable workflow with executable fixtures and current command
+            shapes.
+          </p>
+        </section>
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <ul>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/what-to-choose---instance-migrator-or-database-migrator.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: What to Choose — Instance Migrator or Database
+                Migrator</a
+              >
+              — current division between live source→target migration and
+              offline database transformation.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/instance-migrator.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Instance Migrator</a
+              >
+              — supported OrientDB source/target versions, Java requirement,
+              resumability, logging, and asset migration behavior.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/orientdb-to-self-hosted-postgresql-migration.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: OrientDB to Self-Hosted PostgreSQL Migration</a
+              >
+              — target preparation, migrator cipher, migrated/excluded state,
+              and known limitations.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/migrating-to-a-new-database.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Migrating to a New Database</a
+              >
+              — Database Migrator scenarios, offline requirements, H2→PostgreSQL
+              sequence, and post-migration tasks.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/upgrading-to-nexus-repository-3-71-0-and-beyond.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Upgrading to Nexus Repository 3.71.0 and Beyond</a
+              >
+              — OrientDB 3.70.x migration gate, H2/PostgreSQL paths, and Java
+              transition.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/nexus-repository-upgrade-paths.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository Upgrade Paths</a
+              >
+              — current version sequencing and breaking-version gates.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/reverting-back-to-orientdb.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Reverting Back to OrientDB</a
+              >
+              — why the old database is a recovery point only when matching blob
+              state is restored.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/install-nexus-repository-with-a-postgresql-database.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Install Nexus Repository with PostgreSQL</a
+              >
+              — database ownership, schema privileges, and
+              <code>pg_trgm</code> requirement.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/database-options.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository Database</a
+              >
+              — H2 production limitations, PostgreSQL recommendation, and
+              OrientDB sunset state.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/orientdb-downloads.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository 3.70.x Downloads with OrientDB</a
+              >
+              — final OrientDB line and matching migration downloads.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/download.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Download</a
+              >
+              — current Nexus/Database Migrator/Instance Migrator download
+              references.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/sonatype-nexus-repository-system-requirements.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: System Requirements</a
+              >
+              — current Java/PostgreSQL requirements and supported database
+              expectations.
+            </li>
+            <li>
+              <a
+                href="https://help.sonatype.com/en/sonatype-nexus-repository-3-95-0-release-notes.html"
+                rel="noreferrer"
+                target="_blank"
+                >Sonatype: Nexus Repository 3.95.x Release Notes</a
+              >
+              — dated current release line used as the modern target reference.
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="../Chapter25/Lesson5.html">Previous chapter</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson2.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  
+    <script data-nexus-toc-normalizer>
+      document.addEventListener("DOMContentLoaded", () => {
+        requestAnimationFrame(() => {
+          document.querySelectorAll("[data-on-page-toc] a").forEach((link) => {
+            let label = link.textContent.trim().replace(/^\d{1,2}\s*(?:[.)]|[-–—])\s*/, "");
+            if (/^[1-5]\d\d(?:\b|\/)/.test(label)) label = `HTTP ${label}`;
+            link.textContent = label;
+          });
+        });
+      }, { once: true });
+    </script>
+</body>
+</html>
