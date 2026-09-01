@@ -1,0 +1,1402 @@
+<!DOCTYPE html>
+
+<html data-theme="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<meta content="Stabilize a deliberately flaky SPA-like local test, measure before/after behavior, implement a custom wait tied to an observable state transition, preserve first-failure evidence, and document cleanup and CI implications." name="description"/>
+<meta content="Abolfazl Mohammadijoo" name="author"/>
+<meta content="dark light" name="color-scheme"/>
+<meta content="#07090d" name="theme-color"/>
+<title>
+      Checkpoint Lab — Synchronization: Implicit, Explicit, Fluent, and Custom
+      Waits | DevOps Academy
+    </title>
+<link href="../../../assets/icons/favicon.svg" rel="icon" type="image/svg+xml"/>
+<link href="../../../assets/css/styles.css" rel="stylesheet"/>
+<script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css" id="hljs-theme-dark" rel="stylesheet"/>
+<link disabled="" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css" id="hljs-theme-light" rel="stylesheet"/>
+<script defer="" src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script defer="" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
+<script defer="" src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"></script>
+<script defer="" src="../../../assets/js/highlight-git.js"></script>
+<style id="selenium-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+</head>
+<body class="lesson-page">
+<div class="reading-progress" data-reading-progress=""></div>
+<div aria-hidden="true" class="site-grid"></div>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="site-header" data-header="">
+<div class="header-inner">
+<a aria-label="DevOps Academy home" class="brand" href="../../../index.html"><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span><span class="brand-copy"><strong>DevOps Academy</strong><small>Learn the delivery system</small></span></a>
+<nav aria-label="Primary navigation" class="desktop-nav">
+<a href="../../../index.html#roadmap">Roadmap</a><a class="is-active" href="../../../index.html#courses">Courses</a><a href="../../../index.html#method">Method</a><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+</nav>
+<div class="header-actions">
+<a aria-label="Open GitHub repository" class="icon-button desktop-only" href="https://github.com/mohammadijoo/DevOps_Academy" rel="noopener" target="_blank"><svg aria-hidden="true" viewbox="0 0 24 24">
+<path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"></path></svg></a>
+<button aria-label="Toggle color theme" class="icon-button" data-theme-toggle="" type="button">
+<svg aria-hidden="true" viewbox="0 0 24 24">
+<circle cx="12" cy="12" r="4"></circle>
+<path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path>
+</svg>
+</button>
+<button aria-expanded="false" aria-label="Open navigation" class="icon-button mobile-menu-button" data-mobile-menu-button="" type="button">
+<svg aria-hidden="true" viewbox="0 0 24 24">
+<path d="M4 7h16M4 12h16M4 17h16"></path>
+</svg>
+</button>
+</div>
+</div>
+<nav aria-label="Mobile navigation" class="mobile-nav" data-mobile-menu="">
+<a href="../../../index.html#roadmap">Roadmap</a><a class="is-active" href="../../../index.html#courses">Courses</a><a href="../../../index.html#method">Method</a><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+</nav>
+</header>
+<main class="lesson-shell" id="main-content">
+<aside class="course-sidebar" data-course-sidebar="">
+<div class="sidebar-head">
+<a href="../index.html"><span class="course-glyph">SEL</span>
+<div>
+<small>Course 09</small><strong>Selenium Complete Course</strong>
+</div></a><button aria-label="Close course navigation" data-sidebar-close="" type="button">
+            ×
+          </button>
+</div>
+<label class="sidebar-search"><svg aria-hidden="true" viewbox="0 0 24 24">
+<circle cx="11" cy="11" r="7"></circle>
+<path d="m20 20-4-4"></path></svg><input data-sidebar-search="" placeholder="Search 150 lessons..." type="search"/></label>
+<nav aria-label="Selenium course curriculum" class="sidebar-curriculum">
+<details class="sidebar-chapter">
+<summary>
+<span>01</span>Browser Automation and Test Engineering Foundations
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter01/Lesson1.html"><span>01</span>Browser Automation and Test Engineering
+                Foundations: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter01/Lesson2.html"><span>02</span>Browser Automation and Test Engineering
+                Foundations: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter01/Lesson3.html"><span>03</span>Browser Automation and Test Engineering
+                Foundations: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter01/Lesson4.html"><span>04</span>Browser Automation and Test Engineering
+                Foundations: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter01/Lesson5.html"><span>05</span>Checkpoint Lab — Browser Automation and Test
+                Engineering Foundations</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>02</span>Selenium Ecosystem, Installation, and First
+              WebDriver Session
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter02/Lesson1.html"><span>01</span>Selenium Ecosystem, Installation, and First
+                WebDriver Session: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter02/Lesson2.html"><span>02</span>Selenium Ecosystem, Installation, and First
+                WebDriver Session: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter02/Lesson3.html"><span>03</span>Selenium Ecosystem, Installation, and First
+                WebDriver Session: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter02/Lesson4.html"><span>04</span>Selenium Ecosystem, Installation, and First
+                WebDriver Session: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter02/Lesson5.html"><span>05</span>Checkpoint Lab — Selenium Ecosystem,
+                Installation, and First WebDriver Session</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>03</span>WebDriver Architecture, W3C Protocol, Sessions, and
+              Capabilities
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter03/Lesson1.html"><span>01</span>WebDriver Architecture, W3C Protocol, Sessions,
+                and Capabilities: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter03/Lesson2.html"><span>02</span>WebDriver Architecture, W3C Protocol, Sessions,
+                and Capabilities: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter03/Lesson3.html"><span>03</span>WebDriver Architecture, W3C Protocol, Sessions,
+                and Capabilities: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter03/Lesson4.html"><span>04</span>WebDriver Architecture, W3C Protocol, Sessions,
+                and Capabilities: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter03/Lesson5.html"><span>05</span>Checkpoint Lab — WebDriver Architecture, W3C
+                Protocol, Sessions, and Capabilities</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>04</span>Locators: ID, CSS, XPath, Relative Locators, and
+              Resilient Selection
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter04/Lesson1.html"><span>01</span>Locators: ID, CSS, XPath, Relative Locators, and
+                Resilient Selection: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter04/Lesson2.html"><span>02</span>Locators: ID, CSS, XPath, Relative Locators, and
+                Resilient Selection: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter04/Lesson3.html"><span>03</span>Locators: ID, CSS, XPath, Relative Locators, and
+                Resilient Selection: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter04/Lesson4.html"><span>04</span>Locators: ID, CSS, XPath, Relative Locators, and
+                Resilient Selection: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter04/Lesson5.html"><span>05</span>Checkpoint Lab — Locators: ID, CSS, XPath,
+                Relative Locators, and Resilient Selection</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>05</span>WebElement State, Interactions, Forms, and
+              Validation
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter05/Lesson1.html"><span>01</span>WebElement State, Interactions, Forms, and
+                Validation: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter05/Lesson2.html"><span>02</span>WebElement State, Interactions, Forms, and
+                Validation: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter05/Lesson3.html"><span>03</span>WebElement State, Interactions, Forms, and
+                Validation: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter05/Lesson4.html"><span>04</span>WebElement State, Interactions, Forms, and
+                Validation: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter05/Lesson5.html"><span>05</span>Checkpoint Lab — WebElement State, Interactions,
+                Forms, and Validation</a>
+</div>
+</details>
+<details class="sidebar-chapter" open="">
+<summary>
+<span>06</span>Synchronization: Implicit, Explicit, Fluent, and
+              Custom Waits
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter06/Lesson1.html"><span>01</span>Synchronization: Implicit, Explicit, Fluent, and
+                Custom Waits: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter06/Lesson2.html"><span>02</span>Synchronization: Implicit, Explicit, Fluent, and
+                Custom Waits: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter06/Lesson3.html"><span>03</span>Synchronization: Implicit, Explicit, Fluent, and
+                Custom Waits: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter06/Lesson4.html"><span>04</span>Synchronization: Implicit, Explicit, Fluent, and
+                Custom Waits: Diagnostics, Failure Modes, and Production
+                Practices</a><a aria-current="page" class="sidebar-lesson is-current" data-sidebar-item="" href="../Chapter06/Lesson5.html"><span>05</span>Checkpoint Lab — Synchronization: Implicit,
+                Explicit, Fluent, and Custom Waits</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>07</span>Keyboard, Pointer, Wheel, and Composite Actions API
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter07/Lesson1.html"><span>01</span>Keyboard, Pointer, Wheel, and Composite Actions
+                API: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter07/Lesson2.html"><span>02</span>Keyboard, Pointer, Wheel, and Composite Actions
+                API: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter07/Lesson3.html"><span>03</span>Keyboard, Pointer, Wheel, and Composite Actions
+                API: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter07/Lesson4.html"><span>04</span>Keyboard, Pointer, Wheel, and Composite Actions
+                API: Diagnostics, Failure Modes, and Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter07/Lesson5.html"><span>05</span>Checkpoint Lab — Keyboard, Pointer, Wheel, and
+                Composite Actions API</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>08</span>Navigation, Windows, Tabs, Frames, and Iframes
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter08/Lesson1.html"><span>01</span>Navigation, Windows, Tabs, Frames, and Iframes:
+                Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter08/Lesson2.html"><span>02</span>Navigation, Windows, Tabs, Frames, and Iframes:
+                Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter08/Lesson3.html"><span>03</span>Navigation, Windows, Tabs, Frames, and Iframes:
+                Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter08/Lesson4.html"><span>04</span>Navigation, Windows, Tabs, Frames, and Iframes:
+                Diagnostics, Failure Modes, and Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter08/Lesson5.html"><span>05</span>Checkpoint Lab — Navigation, Windows, Tabs,
+                Frames, and Iframes</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>09</span>Alerts, Prompts, Modal Dialogs, and Browser Context
+              Changes
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter09/Lesson1.html"><span>01</span>Alerts, Prompts, Modal Dialogs, and Browser
+                Context Changes: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter09/Lesson2.html"><span>02</span>Alerts, Prompts, Modal Dialogs, and Browser
+                Context Changes: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter09/Lesson3.html"><span>03</span>Alerts, Prompts, Modal Dialogs, and Browser
+                Context Changes: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter09/Lesson4.html"><span>04</span>Alerts, Prompts, Modal Dialogs, and Browser
+                Context Changes: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter09/Lesson5.html"><span>05</span>Checkpoint Lab — Alerts, Prompts, Modal Dialogs,
+                and Browser Context Changes</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>10</span>Shadow DOM, Web Components, Dynamic DOMs, and
+              Modern Front Ends
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter10/Lesson1.html"><span>01</span>Shadow DOM, Web Components, Dynamic DOMs, and
+                Modern Front Ends: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter10/Lesson2.html"><span>02</span>Shadow DOM, Web Components, Dynamic DOMs, and
+                Modern Front Ends: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter10/Lesson3.html"><span>03</span>Shadow DOM, Web Components, Dynamic DOMs, and
+                Modern Front Ends: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter10/Lesson4.html"><span>04</span>Shadow DOM, Web Components, Dynamic DOMs, and
+                Modern Front Ends: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter10/Lesson5.html"><span>05</span>Checkpoint Lab — Shadow DOM, Web Components,
+                Dynamic DOMs, and Modern Front Ends</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>11</span>File Uploads, Downloads, Cookies, Storage, and
+              Session State
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter11/Lesson1.html"><span>01</span>File Uploads, Downloads, Cookies, Storage, and
+                Session State: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter11/Lesson2.html"><span>02</span>File Uploads, Downloads, Cookies, Storage, and
+                Session State: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter11/Lesson3.html"><span>03</span>File Uploads, Downloads, Cookies, Storage, and
+                Session State: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter11/Lesson4.html"><span>04</span>File Uploads, Downloads, Cookies, Storage, and
+                Session State: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter11/Lesson5.html"><span>05</span>Checkpoint Lab — File Uploads, Downloads,
+                Cookies, Storage, and Session State</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>12</span>JavaScript Execution, Browser Capabilities,
+              Profiles, and Preferences
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter12/Lesson1.html"><span>01</span>JavaScript Execution, Browser Capabilities,
+                Profiles, and Preferences: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter12/Lesson2.html"><span>02</span>JavaScript Execution, Browser Capabilities,
+                Profiles, and Preferences: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter12/Lesson3.html"><span>03</span>JavaScript Execution, Browser Capabilities,
+                Profiles, and Preferences: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter12/Lesson4.html"><span>04</span>JavaScript Execution, Browser Capabilities,
+                Profiles, and Preferences: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter12/Lesson5.html"><span>05</span>Checkpoint Lab — JavaScript Execution, Browser
+                Capabilities, Profiles, and Preferences</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>13</span>Page Object, Page Component, Screenplay, and Test
+              Abstraction Patterns
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter13/Lesson1.html"><span>01</span>Page Object, Page Component, Screenplay, and
+                Test Abstraction Patterns: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter13/Lesson2.html"><span>02</span>Page Object, Page Component, Screenplay, and
+                Test Abstraction Patterns: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter13/Lesson3.html"><span>03</span>Page Object, Page Component, Screenplay, and
+                Test Abstraction Patterns: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter13/Lesson4.html"><span>04</span>Page Object, Page Component, Screenplay, and
+                Test Abstraction Patterns: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter13/Lesson5.html"><span>05</span>Checkpoint Lab — Page Object, Page Component,
+                Screenplay, and Test Abstraction Patterns</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>14</span>Test Data, Parameterization, Fixtures, and
+              Environment Configuration
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter14/Lesson1.html"><span>01</span>Test Data, Parameterization, Fixtures, and
+                Environment Configuration: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter14/Lesson2.html"><span>02</span>Test Data, Parameterization, Fixtures, and
+                Environment Configuration: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter14/Lesson3.html"><span>03</span>Test Data, Parameterization, Fixtures, and
+                Environment Configuration: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter14/Lesson4.html"><span>04</span>Test Data, Parameterization, Fixtures, and
+                Environment Configuration: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter14/Lesson5.html"><span>05</span>Checkpoint Lab — Test Data, Parameterization,
+                Fixtures, and Environment Configuration</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>15</span>Assertions, Failure Semantics, Retries, and
+              Flaky-Test Control
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter15/Lesson1.html"><span>01</span>Assertions, Failure Semantics, Retries, and
+                Flaky-Test Control: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter15/Lesson2.html"><span>02</span>Assertions, Failure Semantics, Retries, and
+                Flaky-Test Control: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter15/Lesson3.html"><span>03</span>Assertions, Failure Semantics, Retries, and
+                Flaky-Test Control: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter15/Lesson4.html"><span>04</span>Assertions, Failure Semantics, Retries, and
+                Flaky-Test Control: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter15/Lesson5.html"><span>05</span>Checkpoint Lab — Assertions, Failure Semantics,
+                Retries, and Flaky-Test Control</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>16</span>Cross-Browser, Responsive, Localization, and
+              Compatibility Testing
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter16/Lesson1.html"><span>01</span>Cross-Browser, Responsive, Localization, and
+                Compatibility Testing: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter16/Lesson2.html"><span>02</span>Cross-Browser, Responsive, Localization, and
+                Compatibility Testing: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter16/Lesson3.html"><span>03</span>Cross-Browser, Responsive, Localization, and
+                Compatibility Testing: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter16/Lesson4.html"><span>04</span>Cross-Browser, Responsive, Localization, and
+                Compatibility Testing: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter16/Lesson5.html"><span>05</span>Checkpoint Lab — Cross-Browser, Responsive,
+                Localization, and Compatibility Testing</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>17</span>Screenshots, Logs, Network Evidence, and Failure
+              Diagnostics
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter17/Lesson1.html"><span>01</span>Screenshots, Logs, Network Evidence, and Failure
+                Diagnostics: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter17/Lesson2.html"><span>02</span>Screenshots, Logs, Network Evidence, and Failure
+                Diagnostics: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter17/Lesson3.html"><span>03</span>Screenshots, Logs, Network Evidence, and Failure
+                Diagnostics: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter17/Lesson4.html"><span>04</span>Screenshots, Logs, Network Evidence, and Failure
+                Diagnostics: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter17/Lesson5.html"><span>05</span>Checkpoint Lab — Screenshots, Logs, Network
+                Evidence, and Failure Diagnostics</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>18</span>WebDriver BiDi: Events, Network, Logs, Script, and
+              Bidirectional Control
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter18/Lesson1.html"><span>01</span>WebDriver BiDi: Events, Network, Logs, Script,
+                and Bidirectional Control: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter18/Lesson2.html"><span>02</span>WebDriver BiDi: Events, Network, Logs, Script,
+                and Bidirectional Control: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter18/Lesson3.html"><span>03</span>WebDriver BiDi: Events, Network, Logs, Script,
+                and Bidirectional Control: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter18/Lesson4.html"><span>04</span>WebDriver BiDi: Events, Network, Logs, Script,
+                and Bidirectional Control: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter18/Lesson5.html"><span>05</span>Checkpoint Lab — WebDriver BiDi: Events,
+                Network, Logs, Script, and Bidirectional Control</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>19</span>Selenium Grid Architecture, Roles, Routing, and
+              Session Distribution
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter19/Lesson1.html"><span>01</span>Selenium Grid Architecture, Roles, Routing, and
+                Session Distribution: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter19/Lesson2.html"><span>02</span>Selenium Grid Architecture, Roles, Routing, and
+                Session Distribution: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter19/Lesson3.html"><span>03</span>Selenium Grid Architecture, Roles, Routing, and
+                Session Distribution: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter19/Lesson4.html"><span>04</span>Selenium Grid Architecture, Roles, Routing, and
+                Session Distribution: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter19/Lesson5.html"><span>05</span>Checkpoint Lab — Selenium Grid Architecture,
+                Roles, Routing, and Session Distribution</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>20</span>Deploying Grid with Containers, Kubernetes, and
+              Cloud Infrastructure
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter20/Lesson1.html"><span>01</span>Deploying Grid with Containers, Kubernetes, and
+                Cloud Infrastructure: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter20/Lesson2.html"><span>02</span>Deploying Grid with Containers, Kubernetes, and
+                Cloud Infrastructure: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter20/Lesson3.html"><span>03</span>Deploying Grid with Containers, Kubernetes, and
+                Cloud Infrastructure: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter20/Lesson4.html"><span>04</span>Deploying Grid with Containers, Kubernetes, and
+                Cloud Infrastructure: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter20/Lesson5.html"><span>05</span>Checkpoint Lab — Deploying Grid with Containers,
+                Kubernetes, and Cloud Infrastructure</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>21</span>Parallel Execution, Isolation, Concurrency, and
+              Test Sharding
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter21/Lesson1.html"><span>01</span>Parallel Execution, Isolation, Concurrency, and
+                Test Sharding: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter21/Lesson2.html"><span>02</span>Parallel Execution, Isolation, Concurrency, and
+                Test Sharding: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter21/Lesson3.html"><span>03</span>Parallel Execution, Isolation, Concurrency, and
+                Test Sharding: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter21/Lesson4.html"><span>04</span>Parallel Execution, Isolation, Concurrency, and
+                Test Sharding: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter21/Lesson5.html"><span>05</span>Checkpoint Lab — Parallel Execution, Isolation,
+                Concurrency, and Test Sharding</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>22</span>CI/CD Integration with GitHub Actions, GitLab CI,
+              and Jenkins
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter22/Lesson1.html"><span>01</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter22/Lesson2.html"><span>02</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter22/Lesson3.html"><span>03</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter22/Lesson4.html"><span>04</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter22/Lesson5.html"><span>05</span>Checkpoint Lab — CI/CD Integration with GitHub
+                Actions, GitLab CI, and Jenkins</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>23</span>Authentication Flows, Proxies, Certificates, and
+              Enterprise Browser Environments
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter23/Lesson1.html"><span>01</span>Authentication Flows, Proxies, Certificates, and
+                Enterprise Browser Environments: Core Concepts and Mental
+                Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter23/Lesson2.html"><span>02</span>Authentication Flows, Proxies, Certificates, and
+                Enterprise Browser Environments: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter23/Lesson3.html"><span>03</span>Authentication Flows, Proxies, Certificates, and
+                Enterprise Browser Environments: Configuration, Design Patterns,
+                and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter23/Lesson4.html"><span>04</span>Authentication Flows, Proxies, Certificates, and
+                Enterprise Browser Environments: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter23/Lesson5.html"><span>05</span>Checkpoint Lab — Authentication Flows, Proxies,
+                Certificates, and Enterprise Browser Environments</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>24</span>Security, Privacy, Test Accounts, and Safe
+              Automation Boundaries
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter24/Lesson1.html"><span>01</span>Security, Privacy, Test Accounts, and Safe
+                Automation Boundaries: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter24/Lesson2.html"><span>02</span>Security, Privacy, Test Accounts, and Safe
+                Automation Boundaries: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter24/Lesson3.html"><span>03</span>Security, Privacy, Test Accounts, and Safe
+                Automation Boundaries: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter24/Lesson4.html"><span>04</span>Security, Privacy, Test Accounts, and Safe
+                Automation Boundaries: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter24/Lesson5.html"><span>05</span>Checkpoint Lab — Security, Privacy, Test
+                Accounts, and Safe Automation Boundaries</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>25</span>Performance Engineering for Test Suites and Grid
+              Capacity
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter25/Lesson1.html"><span>01</span>Performance Engineering for Test Suites and Grid
+                Capacity: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter25/Lesson2.html"><span>02</span>Performance Engineering for Test Suites and Grid
+                Capacity: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter25/Lesson3.html"><span>03</span>Performance Engineering for Test Suites and Grid
+                Capacity: Configuration, Design Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter25/Lesson4.html"><span>04</span>Performance Engineering for Test Suites and Grid
+                Capacity: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter25/Lesson5.html"><span>05</span>Checkpoint Lab — Performance Engineering for
+                Test Suites and Grid Capacity</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>26</span>Selenium IDE, Record/Playback, and Migration to
+              Maintainable Code
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter26/Lesson1.html"><span>01</span>Selenium IDE, Record/Playback, and Migration to
+                Maintainable Code: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter26/Lesson2.html"><span>02</span>Selenium IDE, Record/Playback, and Migration to
+                Maintainable Code: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter26/Lesson3.html"><span>03</span>Selenium IDE, Record/Playback, and Migration to
+                Maintainable Code: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter26/Lesson4.html"><span>04</span>Selenium IDE, Record/Playback, and Migration to
+                Maintainable Code: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter26/Lesson5.html"><span>05</span>Checkpoint Lab — Selenium IDE, Record/Playback,
+                and Migration to Maintainable Code</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>27</span>Framework Integration: pytest, JUnit, TestNG,
+              NUnit, and Language Bindings
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter27/Lesson1.html"><span>01</span>Framework Integration: pytest, JUnit, TestNG,
+                NUnit, and Language Bindings: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter27/Lesson2.html"><span>02</span>Framework Integration: pytest, JUnit, TestNG,
+                NUnit, and Language Bindings: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter27/Lesson3.html"><span>03</span>Framework Integration: pytest, JUnit, TestNG,
+                NUnit, and Language Bindings: Configuration, Design Patterns,
+                and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter27/Lesson4.html"><span>04</span>Framework Integration: pytest, JUnit, TestNG,
+                NUnit, and Language Bindings: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter27/Lesson5.html"><span>05</span>Checkpoint Lab — Framework Integration: pytest,
+                JUnit, TestNG, NUnit, and Language Bindings</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>28</span>Debugging Stale Elements, Timing Races, Driver
+              Failures, and Grid Incidents
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter28/Lesson1.html"><span>01</span>Debugging Stale Elements, Timing Races, Driver
+                Failures, and Grid Incidents: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter28/Lesson2.html"><span>02</span>Debugging Stale Elements, Timing Races, Driver
+                Failures, and Grid Incidents: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter28/Lesson3.html"><span>03</span>Debugging Stale Elements, Timing Races, Driver
+                Failures, and Grid Incidents: Configuration, Design Patterns,
+                and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter28/Lesson4.html"><span>04</span>Debugging Stale Elements, Timing Races, Driver
+                Failures, and Grid Incidents: Diagnostics, Failure Modes, and
+                Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter28/Lesson5.html"><span>05</span>Checkpoint Lab — Debugging Stale Elements,
+                Timing Races, Driver Failures, and Grid Incidents</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>29</span>Test Architecture, Governance, Coding Standards,
+              and Suite Evolution
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter29/Lesson1.html"><span>01</span>Test Architecture, Governance, Coding Standards,
+                and Suite Evolution: Core Concepts and Mental Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter29/Lesson2.html"><span>02</span>Test Architecture, Governance, Coding Standards,
+                and Suite Evolution: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter29/Lesson3.html"><span>03</span>Test Architecture, Governance, Coding Standards,
+                and Suite Evolution: Configuration, Design Patterns, and
+                Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter29/Lesson4.html"><span>04</span>Test Architecture, Governance, Coding Standards,
+                and Suite Evolution: Diagnostics, Failure Modes, and Production
+                Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter29/Lesson5.html"><span>05</span>Checkpoint Lab — Test Architecture, Governance,
+                Coding Standards, and Suite Evolution</a>
+</div>
+</details>
+<details class="sidebar-chapter">
+<summary>
+<span>30</span>Capstone: Build and Operate a Production
+              Cross-Browser Automation Platform
+            </summary>
+<div>
+<a class="sidebar-lesson" data-sidebar-item="" href="../Chapter30/Lesson1.html"><span>01</span>Capstone: Build and Operate a Production
+                Cross-Browser Automation Platform: Core Concepts and Mental
+                Model</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter30/Lesson2.html"><span>02</span>Capstone: Build and Operate a Production
+                Cross-Browser Automation Platform: Guided Hands-On Workflow</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter30/Lesson3.html"><span>03</span>Capstone: Build and Operate a Production
+                Cross-Browser Automation Platform: Configuration, Design
+                Patterns, and Trade-Offs</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter30/Lesson4.html"><span>04</span>Capstone: Build and Operate a Production
+                Cross-Browser Automation Platform: Diagnostics, Failure Modes,
+                and Production Practices</a><a class="sidebar-lesson" data-sidebar-item="" href="../Chapter30/Lesson5.html"><span>05</span>Checkpoint Lab — Capstone: Build and Operate a
+                Production Cross-Browser Automation Platform</a>
+</div>
+</details>
+</nav>
+</aside>
+<article class="lesson-article">
+<nav aria-label="Breadcrumb" class="breadcrumbs">
+<a href="../../../index.html">Academy</a><span>/</span><a href="../index.html">Selenium</a><span>/</span><span>Chapter 06</span>
+</nav>
+<header class="lesson-header">
+<div class="lesson-meta">
+<span>Chapter 06</span><i></i><span>Lesson 05</span><i></i><span>~250 minutes</span>
+</div>
+<h1>
+            Checkpoint Lab — Synchronization: Implicit, Explicit, Fluent, and
+            Custom Waits
+          </h1>
+<p>
+            Stabilize a deliberately flaky SPA-like local test, measure
+            before/after behavior, implement a custom wait tied to an observable
+            state transition, preserve first-failure evidence, and document
+            cleanup and CI implications.
+          </p>
+<div class="lesson-tags">
+<span>Checkpoint</span><span>Flake baseline</span><span>Custom condition</span><span>Evidence packet</span><span>Cleanup</span>
+</div>
+</header><section class="lesson-objectives">
+<h2>Learning objectives</h2>
+<ul>
+<li>
+              Run a deterministic set of SPA-like delays and record the
+              pass/fail pattern of a deliberately brittle fixed-sleep baseline.
+            </li>
+<li>
+              Replace the brittle baseline with bounded waits tied to observable
+              DOM/application transitions without increasing fixed sleeps.
+            </li>
+<li>
+              Implement one custom condition that validates both application
+              phase and run identity.
+            </li>
+<li>
+              Predict at least two state transitions before execution and verify
+              the predictions independently afterward.
+            </li>
+<li>
+              Produce an evidence packet containing versions, session IDs,
+              capabilities, timing results, screenshots, DOM state, and
+              diagnostics.
+            </li>
+<li>
+              Document verification, cleanup, reproducibility assumptions, and
+              the bridge to Chapter 07 Actions API.
+            </li>
+</ul>
+</section><section id="scenario">
+<h2>1. Checkpoint scenario and safety boundary</h2>
+<p>
+            You will stabilize a small SPA-like fixture whose result appears
+            after deterministic but varying delays. The brittle baseline uses
+            one fixed sleep so it passes some cases and fails others. The stable
+            run uses bounded explicit/custom conditions with implicit wait kept
+            at zero. You will record the before/after pass pattern, verify
+            predicted state transitions, and keep evidence from the first
+            baseline failures.
+          </p>
+<div class="callout">
+<strong>Local-only requirement:</strong> use only
+            <code>http://127.0.0.1:8765</code>, synthetic run IDs, and a
+            disposable browser session. Do not point this exercise at a
+            production application, real account, public Grid, or sensitive
+            data. The lab does not require paid services, Docker, Grid, BiDi, or
+            enterprise infrastructure.
+          </div>
+<ul>
+<li>
+              Selenium Python is pinned to 4.47.0; Python 3.10+ is required.
+            </li>
+<li>
+              A supported local Chromium-family browser is installed; record the
+              actual browser version returned by capabilities.
+            </li>
+<li>
+              Selenium Manager may resolve the local driver normally; record
+              browser/session provenance rather than assuming versions.
+            </li>
+<li>
+              The test uses no implicit wait while running explicit/custom
+              conditions.
+            </li>
+<li>
+              The fixed sleep exists only in the deliberately flaky baseline and
+              is removed from the stabilized path.
+            </li>
+<li>
+              The evidence directory contains only synthetic local test
+              artifacts and is deleted during cleanup after review.
+            </li>
+</ul>
+</section><section id="setup">
+<h2>2. Setup and preflight</h2>
+<p class="artifact-intro">The following example makes the Setup and preflight behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-bash">mkdir selenium-ch06-checkpoint
+cd selenium-ch06-checkpoint
+python -m venv .venv
+# Linux/macOS:
+. .venv/bin/activate
+# Windows PowerShell:
+# .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install "selenium==4.47.0"
+mkdir site evidence</code></pre>
+<p class="artifact-intro">The following example makes the Setup and preflight behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-bash">python -c "import selenium; print('selenium', selenium.__version__)"
+python --version</code></pre>
+<p>
+            Confirm the local port is free and no production browser profile is
+            being reused. The WebDriver session created below owns its temporary
+            automation profile and is closed in <code>finally</code>.
+          </p>
+</section><section id="fixture">
+<h2>3. Create the SPA-like timing fixture</h2>
+<p class="artifact-intro">The following example makes the Create the SPA-like timing fixture behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-html">&lt;!doctype html&gt;
+&lt;html lang="en"&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;&lt;title&gt;Chapter 06 Checkpoint&lt;/title&gt;
+&lt;style&gt;body{font:16px system-ui;max-width:760px;margin:40px auto;padding:0 20px}#status,#result{padding:10px;margin-top:12px;border:1px solid #777}&lt;/style&gt;&lt;/head&gt;
+&lt;body data-build="ch06-checkpoint-v1"&gt;
+&lt;h1&gt;Async build result&lt;/h1&gt;
+&lt;button id="run"&gt;Run&lt;/button&gt;
+&lt;div id="status" data-phase="idle" data-run-id=""&gt;Idle&lt;/div&gt;
+&lt;div id="mount"&gt;&lt;/div&gt;
+&lt;script&gt;
+const p = new URLSearchParams(location.search);
+const delay = Number(p.get('delay') || '700');
+const runId = p.get('run') || 'R0';
+const status = document.querySelector('#status');
+const mount = document.querySelector('#mount');
+document.querySelector('#run').addEventListener('click', () =&gt; {
+  status.dataset.phase='working'; status.dataset.runId=runId; status.textContent=`Working ${runId}`;
+  mount.replaceChildren();
+  setTimeout(() =&gt; {
+    const result=document.createElement('div'); result.id='result'; result.dataset.runId=runId;
+    result.textContent=`Complete ${runId} after ${delay} ms`; mount.append(result);
+    status.dataset.phase='complete'; status.textContent=`Complete ${runId}`;
+  }, delay);
+});
+&lt;/script&gt;&lt;/body&gt;&lt;/html&gt;</code></pre>
+<p>
+            Save as <code>site/index.html</code> and start the fixture in
+            another terminal:
+          </p>
+<pre><code class="language-bash">python -m http.server 8765 --bind 127.0.0.1 --directory site</code></pre>
+</section><section id="predictions">
+<h2>4. Write predictions before execution</h2>
+<p class="artifact-intro">The following example makes the Write predictions before execution behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-text">Prediction 1: immediately after Run, status phase changes idle -&gt; working and #result is absent.
+Prediction 2: with a fixed 0.5 s sleep, delay cases below 500 ms should usually pass while cases above 500 ms should fail because #result is still absent.
+Prediction 3: the stabilized wait should pass every configured delay &lt;= 1.4 s within a 2.2 s deadline without increasing any fixed sleep.
+Prediction 4: each accepted result must carry the current run ID so a stale result from another run cannot satisfy the wait.</code></pre>
+<p>
+            These are falsifiable. If actual behavior differs, preserve the
+            evidence and diagnose it instead of changing the expected narrative
+            after the run.
+          </p>
+</section><section id="baseline">
+<h2>5. Record the deliberately flaky baseline</h2>
+<p>
+            The following baseline is intentionally wrong. It exists so you can
+            measure a pass/fail pattern before repair.
+          </p>
+<pre><code class="language-python">import time
+from pathlib import Path
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import NoSuchElementException
+
+BASE = "http://127.0.0.1:8765/"
+DELAYS = [120, 700, 250, 1100, 400, 1400]
+E = Path("evidence"); E.mkdir(exist_ok=True)
+driver = webdriver.Chrome()
+results = []
+try:
+    assert driver.timeouts.implicit_wait == 0
+    for i, delay in enumerate(DELAYS, 1):
+        run_id = f"B{i}"
+        driver.get(f"{BASE}?delay={delay}&amp;run={run_id}")
+        driver.find_element(By.ID, "run").click()
+        time.sleep(0.5)  # INTENTIONALLY BRITTLE BASELINE ONLY
+        try:
+            result = driver.find_element(By.ID, "result")
+            ok = result.get_dom_attribute("data-run-id") == run_id
+            results.append({"run":run_id,"delay_ms":delay,"passed":ok})
+        except NoSuchElementException as exc:
+            results.append({"run":run_id,"delay_ms":delay,"passed":False,"error":type(exc).__name__})
+            driver.save_screenshot(str(E / f"baseline-{run_id}-failure.png"))
+finally:
+    driver.quit()
+
+print(results)</code></pre>
+<p>
+            Expected pattern: shorter delays pass and longer delays fail. Exact
+            scheduling can vary slightly by machine; what matters is that
+            pass/fail correlates with the guessed 0.5-second sleep rather than
+            with an application-ready condition. Save the printed result list as
+            baseline evidence.
+          </p>
+</section><section id="custom-condition">
+<h2>6. Implement the application-specific wait</h2>
+<p class="artifact-intro">The following example makes the Implement the application-specific wait behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-python">from selenium.webdriver.common.by import By
+
+class RunComplete:
+    def __init__(self, run_id):
+        self.run_id = run_id
+
+    def __call__(self, driver):
+        status = driver.find_element(By.ID, "status")
+        phase = status.get_dom_attribute("data-phase")
+        current = status.get_dom_attribute("data-run-id")
+        if current != self.run_id or phase != "complete":
+            return False
+        result = driver.find_element(By.ID, "result")
+        return result if result.get_dom_attribute("data-run-id") == self.run_id else False</code></pre>
+<p>
+            The condition is intentionally stronger than presence. It binds
+            readiness to the current run identity and the application’s terminal
+            phase, then returns the current result element.
+          </p>
+</section><section id="stable-run">
+<h2>7. Run the stabilized suite and collect evidence</h2>
+<p class="artifact-intro">The following example makes the Run the stabilized suite and collect evidence behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-python">from pathlib import Path
+from time import monotonic
+import json, selenium
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+
+BASE = "http://127.0.0.1:8765/"
+DELAYS = [120, 700, 250, 1100, 400, 1400]
+E = Path("evidence"); E.mkdir(exist_ok=True)
+driver = webdriver.Chrome()
+report = {"selenium": selenium.__version__, "stable_runs": []}
+try:
+    assert driver.timeouts.implicit_wait == 0
+    report.update({
+        "session_id": driver.session_id,
+        "browser": driver.capabilities.get("browserName"),
+        "browser_version": driver.capabilities.get("browserVersion"),
+        "platform": driver.capabilities.get("platformName"),
+        "implicit_wait": driver.timeouts.implicit_wait,
+    })
+
+    for i, delay in enumerate(DELAYS, 1):
+        run_id = f"S{i}"
+        driver.get(f"{BASE}?delay={delay}&amp;run={run_id}")
+        assert driver.find_element(By.TAG_NAME, "body").get_dom_attribute("data-build") == "ch06-checkpoint-v1"
+        assert driver.find_element(By.ID, "status").get_dom_attribute("data-phase") == "idle"
+
+        driver.find_element(By.ID, "run").click()
+        status = driver.find_element(By.ID, "status")
+        assert status.get_dom_attribute("data-phase") == "working"
+        assert status.get_dom_attribute("data-run-id") == run_id
+
+        t0 = monotonic()
+        try:
+            result = WebDriverWait(driver, 2.2, poll_frequency=0.2).until(RunComplete(run_id))
+        except TimeoutException:
+            driver.save_screenshot(str(E / f"stable-{run_id}-timeout.png"))
+            (E / f"stable-{run_id}-source.html").write_text(driver.page_source, encoding="utf-8")
+            raise
+        elapsed = monotonic() - t0
+
+        assert result.get_dom_attribute("data-run-id") == run_id
+        assert driver.find_element(By.ID, "status").get_dom_attribute("data-phase") == "complete"
+        report["stable_runs"].append({
+            "run": run_id,
+            "delay_ms": delay,
+            "passed": True,
+            "elapsed_seconds": round(elapsed, 3),
+            "result_text": result.text,
+        })
+
+    driver.save_screenshot(str(E / "stable-final.png"))
+finally:
+    (E / "stable-report.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    driver.quit()</code></pre>
+<p>
+            No fixed sleep appears in the stable path. Each run exits as soon as
+            the application phase and run identity satisfy the condition, up to
+            the 2.2-second deadline.
+          </p>
+</section><section id="compare">
+<h2>8. Compare before and after without rewriting history</h2>
+<p class="artifact-intro">The following table organizes the key choices and evidence for Compare before and after without rewriting history. Use it together with the surrounding prose so the rows serve as a comparison aid rather than standalone rules.</p><div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Evidence</th>
+<th>Brittle baseline</th>
+<th>Stabilized run</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Synchronization contract</td>
+<td>0.5 s wall-clock guess</td>
+<td>phase=complete + current run ID + result node</td>
+</tr>
+<tr>
+<td>Expected delay sensitivity</td>
+<td>Passes short cases, fails longer cases</td>
+<td>
+                    Passes all configured cases within bounded 2.2 s budget
+                  </td>
+</tr>
+<tr>
+<td>Implicit wait</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr>
+<td>Failure meaning</td>
+<td>“Result absent after guess”</td>
+<td>
+                    “Required application state not reached before deadline”
+                  </td>
+</tr>
+<tr>
+<td>First-failure evidence</td>
+<td>Screenshot on baseline failure</td>
+<td>Screenshot + page source on timeout</td>
+</tr>
+<tr>
+<td>Suite cost</td>
+<td>Always consumes 0.5 s before lookup</td>
+<td>
+                    Consumes only actual transition time plus polling
+                    granularity
+                  </td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>
+            Preserve the baseline report even after the stable run succeeds. It
+            demonstrates that the correction changed the synchronization
+            contract, not the AUT timing.
+          </p>
+</section><section id="independent-verification">
+<h2>9. Independently verify the predictions</h2>
+<ul>
+<li>
+<strong>Prediction 1:</strong> inspect the status immediately
+              after clicking Run; it must be <code>working</code> with the
+              current run ID before completion.
+            </li>
+<li>
+<strong>Prediction 2:</strong> compare baseline pass/fail entries
+              against their configured delays. The pattern should track the 0.5
+              s guess.
+            </li>
+<li>
+<strong>Prediction 3:</strong> confirm every stable run has
+              <code>passed=true</code> and elapsed time remains below the 2.2 s
+              deadline.
+            </li>
+<li>
+<strong>Prediction 4:</strong> confirm each result and status
+              carry the same current run ID; the custom wait must not accept a
+              prior run.
+            </li>
+</ul>
+<p>
+            If a stable run times out even though its configured delay is under
+            1.4 seconds, inspect the captured screenshot/page source, actual
+            elapsed time, browser/session evidence, and host load before
+            increasing the timeout.
+          </p>
+</section><section id="evidence-packet">
+<h2>10. Required evidence packet</h2>
+<ul>
+<li>
+<code>evidence/baseline-*-failure.png</code> for at least the
+              first baseline failures.
+            </li>
+<li>
+              The printed or saved baseline result list with run IDs, configured
+              delays, pass/fail state, and exception type.
+            </li>
+<li>
+<code>evidence/stable-report.json</code> with
+              Selenium/browser/platform/session provenance and per-run elapsed
+              time.
+            </li>
+<li>
+<code>evidence/stable-final.png</code> from a successful terminal
+              state.
+            </li>
+<li>
+              Any <code>stable-*-timeout.png</code> and page source if a stable
+              run fails.
+            </li>
+<li>
+              Your written predictions and a short conclusion explaining why the
+              condition, not the timeout number, removed the flake pattern.
+            </li>
+</ul>
+</section><section id="verification">
+<h2>11. Verification checklist</h2>
+<ul>
+<li>
+              The AUT binds only to loopback and the body build marker is
+              verified.
+            </li>
+<li>
+              Selenium Python 4.47.0 and actual browser/platform/session
+              identity are recorded.
+            </li>
+<li>
+              Explicit/custom-wait execution uses implicit wait zero; no
+              mixed-wait policy is present.
+            </li>
+<li>
+              The baseline contains one intentionally brittle fixed sleep and
+              the stabilized path contains none.
+            </li>
+<li>
+              At least two state predictions were written before execution and
+              independently checked afterward.
+            </li>
+<li>
+              The custom wait verifies both terminal application phase and the
+              current run ID.
+            </li>
+<li>
+              Timeout failures preserve screenshot/page-source evidence before
+              browser teardown.
+            </li>
+<li>
+              The browser session and local HTTP server are terminated during
+              cleanup.
+            </li>
+</ul>
+</section><section id="cleanup">
+<h2>12. Cleanup and rollback</h2>
+<p class="artifact-intro">The following example makes the Cleanup and rollback behavior concrete. Read it with the stated assumptions, then compare its observable output or state changes with the explanation that follows.</p><pre><code class="language-bash"># Stop http.server with Ctrl+C first.
+deactivate 2&gt;/dev/null || true
+cd ..
+rm -rf selenium-ch06-checkpoint</code></pre>
+<p>
+            Only delete the disposable directory after reviewing or copying the
+            evidence you need. Do not clear shared Selenium Manager caches,
+            browser profiles, unrelated CI workspaces, or production test data
+            as part of this lab.
+          </p>
+</section><section id="production">
+<h2>13. What Chapter 06 adds to the operating model</h2>
+<p>
+            You can now turn asynchronous browser/AUT behavior into bounded,
+            observable contracts; keep implicit and explicit timing policy
+            understandable; use Python <code>WebDriverWait</code> fluently;
+            create domain-specific conditions; preserve timeout evidence; and
+            distinguish application/infrastructure failure from pure
+            synchronization defects. Chapter 07 builds on that determinism with
+            the Actions API for keyboard, pointer, wheel, and composite input
+            sequences.
+          </p>
+</section><section id="knowledge">
+<h2>Knowledge check</h2>
+<div class="quiz-card">
+<p><strong>What makes the baseline flaky by design?</strong></p>
+<button data-reveal-answer="" type="button">Reveal answer</button>
+<div class="quiz-answer" hidden="">
+<p>
+                It checks after a fixed 0.5-second sleep while the fixture uses
+                several delays both below and above that value, so pass/fail
+                follows timing luck rather than readiness.
+              </p>
+</div>
+</div>
+<div class="quiz-card">
+<p>
+<strong>Why does the stable condition include run ID as well as
+                phase=complete?</strong>
+</p>
+<button data-reveal-answer="" type="button">Reveal answer</button>
+<div class="quiz-answer" hidden="">
+<p>
+                It prevents a result from a previous run or unrelated transition
+                from satisfying the current wait.
+              </p>
+</div>
+</div>
+<div class="quiz-card">
+<p>
+<strong>Why should you preserve baseline failures after the stable run
+                passes?</strong>
+</p>
+<button data-reveal-answer="" type="button">Reveal answer</button>
+<div class="quiz-answer" hidden="">
+<p>
+                They prove the original synchronization defect and show that the
+                repair changed the wait contract rather than hiding evidence.
+              </p>
+</div>
+</div>
+<div class="quiz-card">
+<p>
+<strong>A stable case under the configured delay budget times out in
+                CI. What should you do first?</strong>
+</p>
+<button data-reveal-answer="" type="button">Reveal answer</button>
+<div class="quiz-answer" hidden="">
+<p>
+                Preserve the timeout evidence and inspect actual AUT state,
+                session/browser versions, host/Grid/resource conditions, and
+                elapsed timing before increasing the deadline.
+              </p>
+</div>
+</div>
+<div class="quiz-card">
+<p>
+<strong>What concept from this chapter must be applied before Chapter
+                07 composite actions?</strong>
+</p>
+<button data-reveal-answer="" type="button">Reveal answer</button>
+<div class="quiz-answer" hidden="">
+<p>
+                Wait for the specific observable state required by the next
+                input action instead of starting pointer/keyboard sequences
+                against a page that may still be transitioning.
+              </p>
+</div>
+</div>
+</section><div class="next-concepts">
+<span>Next lesson</span>
+<h3>Keyboard, Pointer, Wheel, and Composite Actions API</h3>
+<p>
+              Apply deterministic readiness checks before coordinated user-input
+              sequences so complex actions are not built on timing races.
+            </p>
+</div><section id="references">
+<h2>Official references and version notes</h2>
+<ul>
+<li>
+<a href="https://www.selenium.dev/blog/2026/selenium-4-47-released/" rel="noreferrer" target="_blank">Selenium 4.47 release</a>
+              — current pinned Selenium release baseline for this chapter.
+            </li>
+<li>
+<a href="https://www.selenium.dev/documentation/webdriver/waits/" rel="noreferrer" target="_blank">Waiting Strategies</a>
+              — current Selenium guidance on page-load readiness, implicit
+              waits, explicit waits, and the warning against mixing implicit and
+              explicit waits.
+            </li>
+<li>
+<a href="https://www.selenium.dev/documentation/webdriver/support_features/expected_conditions/" rel="noreferrer" target="_blank">Waiting with Expected Conditions</a>
+              — common explicit-wait conditions such as presence, visibility,
+              stale state, text, and title checks.
+            </li>
+<li>
+<a href="https://www.selenium.dev/selenium/docs/api/py/selenium_webdriver_support/selenium.webdriver.support.wait.html" rel="noreferrer" target="_blank">Python WebDriverWait API 4.47.0</a>
+              — timeout, poll frequency, ignored exceptions, <code>until</code>,
+              and <code>until_not</code>.
+            </li>
+<li>
+<a href="https://www.selenium.dev/selenium/docs/api/py/selenium_webdriver_common/selenium.webdriver.common.timeouts.html" rel="noreferrer" target="_blank">Python Timeouts API 4.47.0</a>
+              — implicit, page-load, and script timeout concepts.
+            </li>
+</ul>
+<div class="callout info version-note-card"><strong>Version and compatibility note</strong><p class="muted">
+            Version-sensitive behavior was rechecked against Selenium primary
+            documentation on <strong>2026-08-28</strong>. Mandatory examples pin
+            <strong>Selenium Python 4.47.0</strong> on Python 3.10+, use a
+            supported locally installed Chromium-family browser with ordinary
+            Selenium Manager resolution, and target only loopback fixtures.
+            Python has no separate Java-style <code>FluentWait</code> class:
+            configurable fluent behavior is provided by
+            <code>WebDriverWait(timeout, poll_frequency, ignored_exceptions)</code>. Grid, browser clouds, enterprise identity, and BiDi are not
+            required in this chapter. The checkpoint deliberately uses one fixed
+            sleep only in the brittle baseline. The stabilized implementation
+            uses bounded explicit/custom conditions with an implicit wait of
+            zero and preserves first-failure evidence.
+          </p></div></section><nav aria-label="Lesson pagination" class="lesson-pagination">
+<a href="Lesson4.html">Previous lesson</a><a href="../index.html">Course curriculum</a><a href="../Chapter07/Lesson1.html">Next lesson</a>
+</nav><section aria-labelledby="support-title" class="support-panel" id="support">
+<div aria-hidden="true" class="support-orbit"></div>
+<div class="support-copy">
+<p class="eyebrow">Keep the academy open</p>
+<h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+<p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+<div aria-label="Abolfazl Mohammadijoo social links" class="social-row">
+<a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">GitHub</a><a href="https://ir.linkedin.com/in/abolfazlmohammadijoo" rel="noopener" target="_blank">LinkedIn</a><a href="https://x.com/mohammadijoo" rel="noopener" target="_blank">X</a><a href="https://www.youtube.com/@abolfazlmohammadijoo" rel="noopener" target="_blank">YouTube</a><a href="https://mohammadijoo.ir/en/" rel="noopener" target="_blank">Website</a>
+</div>
+</div>
+<div class="wallet-card">
+<div class="wallet-head">
+<span class="network-dot"></span><span>Ethereum / ERC-20</span>
+</div>
+<code data-wallet-address="">0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code><button class="copy-wallet" data-copy-wallet="" type="button">
+<svg aria-hidden="true" viewbox="0 0 24 24">
+<rect height="11" rx="2" width="11" x="8" y="8"></rect>
+<path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy address</span></button><small>Send only Ethereum/ERC-20 compatible assets to this
+              address.</small>
+</div>
+</section>
+<footer class="site-footer">
+<div>
+<a class="footer-brand" href="../../../index.html"><span aria-hidden="true" class="brand-mark mini">&gt;_</span> DevOps Academy</a>
+<p>A browser-native learning path for modern software delivery and operations.</p>
+</div>
+<div class="footer-meta">
+<span>Created by <a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">Abolfazl Mohammadijoo</a></span><span>© <span data-current-year="">2026</span></span>
+</div>
+</footer>
+</article>
+<aside aria-label="On this page" class="on-page-toc">
+<p>On this page</p>
+<nav data-on-page-toc=""></nav>
+<div class="toc-progress">
+<span>Lesson progress</span><strong data-progress-label="">0%</strong>
+</div>
+</aside>
+<button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+</main>
+<script defer="" src="../../../assets/js/main.js"></script>
+<script defer="" src="../../../assets/js/course.js"></script>
+<script defer="" src="../../../assets/js/mermaid_export.js"></script>
+
+<script data-selenium-toc-unnumbered>
+(() => {
+  const toc = document.querySelector("[data-on-page-toc]");
+  if (!toc) return;
+
+  const stripSectionNumber = (label) =>
+    label.replace(
+      /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+      "",
+    );
+
+  const normalizeTocLabels = () => {
+    toc.querySelectorAll("a").forEach((link) => {
+      const cleaned = stripSectionNumber(link.textContent);
+      if (cleaned !== link.textContent) {
+        link.textContent = cleaned;
+      }
+    });
+  };
+
+  normalizeTocLabels();
+
+  const observer = new MutationObserver(normalizeTocLabels);
+  observer.observe(toc, { childList: true, subtree: true, characterData: true });
+})();
+</script>
+</body>
+</html>
