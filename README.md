@@ -3,10 +3,11 @@
 [![DevOps Academy](https://img.shields.io/badge/DevOps%20Academy-09090b?style=for-the-badge&logo=githubpages&logoColor=white)](https://mohammadijoo.github.io/DevOps_Academy/)
 [![Courses](https://img.shields.io/badge/Courses-37-7c3aed?style=flat-square)](https://mohammadijoo.github.io/DevOps_Academy/#courses)
 [![Learning Stages](https://img.shields.io/badge/Learning%20Stages-12-0891b2?style=flat-square)](https://mohammadijoo.github.io/DevOps_Academy/#roadmap)
+[![Available Courses](https://img.shields.io/badge/Available%20Courses-9-059669?style=flat-square)](https://mohammadijoo.github.io/DevOps_Academy/#courses)
 
 DevOps Academy is a browser-native learning platform for DevOps engineering, software delivery, infrastructure automation, cloud platforms, observability, testing, and security. The academy organizes 37 widely used DevOps tools into a prerequisite-aware path that progresses from Linux and version control to containers, infrastructure as code, GitOps, observability, and public cloud platforms.
 
-The website is implemented as a static GitHub Pages project. Lessons can be studied online or downloaded and opened locally without a server, database, account, or learning-management platform.
+The website is implemented as a static GitHub Pages project. Lessons can be studied online or downloaded and opened locally without a server, database, account, or learning-management platform. The academy currently includes 9 fully published courses with 1,215 published lessons, while the complete 37-course roadmap and curricula remain available for the courses still in progress.
 
 ## Website
 
@@ -35,16 +36,25 @@ The curriculum is organized into 12 sequential stages:
 
 ### Available
 
-- **Linux** — 20 chapters and 100 reserved lesson pages
+The academy currently has **9 fully published courses with 1,215 lessons**:
 
-`courses/linux/Chapter01/Lesson1.html` is the first fully implemented lesson and establishes the shared lesson structure and presentation standard for future DevOps Academy content. The remaining Linux lesson paths are reserved so the course structure and permanent URLs remain stable while the content is expanded.
+- **[Linux](https://mohammadijoo.github.io/DevOps_Academy/courses/linux/)** — 20 chapters · 100 lessons published
+- **[Bash](https://mohammadijoo.github.io/DevOps_Academy/courses/bash/)** — 20 chapters · 100 lessons published
+- **[PowerShell](https://mohammadijoo.github.io/DevOps_Academy/courses/powershell/)** — 20 chapters · 100 lessons published
+- **[Git](https://mohammadijoo.github.io/DevOps_Academy/courses/git/)** — 26 chapters · 130 lessons published
+- **[GitHub](https://mohammadijoo.github.io/DevOps_Academy/courses/github/)** — 32 chapters · 160 lessons published
+- **[GitLab](https://mohammadijoo.github.io/DevOps_Academy/courses/gitlab/)** — 34 chapters · 170 lessons published
+- **[Maven & Gradle](https://mohammadijoo.github.io/DevOps_Academy/courses/maven-gradle/)** — 31 chapters · 155 lessons published
+- **[Nexus Repository](https://mohammadijoo.github.io/DevOps_Academy/courses/nexus-repository/)** — 30 chapters · 150 lessons published
+- **[Selenium](https://mohammadijoo.github.io/DevOps_Academy/courses/selenium/)** — 30 chapters · 150 lessons published
+
+These published courses use the academy's shared lesson architecture, including searchable course navigation, active-lesson highlighting, responsive on-page tables of contents, syntax highlighting, Mermaid diagrams and exports, knowledge checks, progress tracking, previous/next navigation, references, support sections, and consistent lesson footers.
 
 ### Planned
 
-- **Git** — 16 chapters and 80 reserved lesson pages
-- The other 35 courses shown in the learning roadmap
+- The remaining **28 courses** shown in the 37-course learning roadmap
 
-Planned courses remain visible in their correct learning stages and will be activated when their curricula and lesson content are completed.
+Planned courses remain visible in their correct learning stages with linked curriculum pages and will be activated as their full lesson content is completed.
 
 ## Platform Features
 
@@ -52,7 +62,7 @@ Planned courses remain visible in their correct learning stages and will be acti
 - Light and dark themes with persistent user preference
 - Searchable and filterable 37-course catalogue
 - Sequential learning path with clear course categories and prerequisites
-- Dedicated Linux curriculum pages and reserved Git curriculum structure
+- Dedicated curriculum pages and complete lesson sets for the 9 published courses, with stable curriculum paths for the remaining planned courses
 - Responsive lesson sidebar that automatically positions the active chapter at the top
 - Syntax highlighting and copy controls for command and code examples
 - MathJax support for mathematical notation
@@ -84,10 +94,29 @@ DevOps_Academy/
     │   ├── index.html
     │   ├── curriculum.json
     │   └── Chapter01 ... Chapter20/
-    └── git/
-        ├── index.html
-        ├── curriculum.json
-        └── Chapter01 ... Chapter16/
+    ├── bash/
+    │   ├── index.html
+    │   ├── curriculum.json
+    │   └── Chapter01 ... Chapter20/
+    ├── powershell/
+    │   ├── index.html
+    │   ├── curriculum.json
+    │   └── Chapter01 ... Chapter20/
+    ├── git/
+    │   ├── index.html
+    │   ├── curriculum.json
+    │   └── Chapter01 ... Chapter26/
+    ├── github/
+    │   └── Chapter01 ... Chapter32/
+    ├── gitlab/
+    │   └── Chapter01 ... Chapter34/
+    ├── maven-gradle/
+    │   └── Chapter01 ... Chapter31/
+    ├── nexus-repository/
+    │   └── Chapter01 ... Chapter30/
+    ├── selenium/
+    │   └── Chapter01 ... Chapter30/
+    └── ... 28 additional course directories
 ```
 
 ## Technologies
