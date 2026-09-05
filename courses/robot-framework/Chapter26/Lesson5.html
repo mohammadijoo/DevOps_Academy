@@ -1,0 +1,2354 @@
+<!doctype html>
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Containerize a deterministic Robot Framework suite, prove host/container semantic equivalence, inject and diagnose a result-mount path failure, preserve evidence, and document the filesystem/network ownership contract."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Checkpoint Lab — Containers, Reproducible Runtimes, and Distributed Test
+      Environments | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\(", "\)"]], displayMath: [["\[", "\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <script defer src="../../../assets/js/robot-framework-highlight.js"></script>
+    <style id="robot-framework-course-enhancements">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 720px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      .lesson-article .state-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        margin: 22px 0;
+      }
+      .lesson-article .state-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        background: var(--surface);
+      }
+      .lesson-article .state-card h3 {
+        margin-top: 0;
+      }
+      .lesson-article .state-card p:last-child {
+        margin-bottom: 0;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul,
+        .lesson-article .state-grid {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 590px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg></a
+          ><button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg></button
+          ><button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">RF</span>
+            <div>
+              <small>Course 10</small
+              ><strong>Robot Framework Complete Course</strong>
+            </div></a
+          >
+          <button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 150 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="Robot Framework course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Robot Framework Foundations, ATDD, BDD, RPA, and
+              Use Cases
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Robot Framework Foundations, ATDD, BDD, RPA, and
+                Use Cases: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Robot Framework Foundations, ATDD, BDD, RPA, and
+                Use Cases: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Robot Framework Foundations, ATDD, BDD, RPA, and
+                Use Cases: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Robot Framework Foundations, ATDD, BDD, RPA, and
+                Use Cases: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Robot Framework Foundations,
+                ATDD, BDD, RPA, and Use Cases</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Python Environment, Installation, CLI, Editors, and
+              First Suite
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Python Environment, Installation, CLI, Editors,
+                and First Suite: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Python Environment, Installation, CLI, Editors,
+                and First Suite: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Python Environment, Installation, CLI, Editors,
+                and First Suite: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Python Environment, Installation, CLI, Editors,
+                and First Suite: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Python Environment,
+                Installation, CLI, Editors, and First Suite</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Robot File Syntax, Sections, Tables, Whitespace,
+              and Parsing Rules
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Robot File Syntax, Sections, Tables, Whitespace,
+                and Parsing Rules: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Robot File Syntax, Sections, Tables, Whitespace,
+                and Parsing Rules: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Robot File Syntax, Sections, Tables, Whitespace,
+                and Parsing Rules: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Robot File Syntax, Sections, Tables, Whitespace,
+                and Parsing Rules: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Robot File Syntax, Sections,
+                Tables, Whitespace, and Parsing Rules</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Test Cases, Tasks, Suites, Names, Documentation,
+              and Metadata
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Test Cases, Tasks, Suites, Names, Documentation,
+                and Metadata: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Test Cases, Tasks, Suites, Names, Documentation,
+                and Metadata: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Test Cases, Tasks, Suites, Names, Documentation,
+                and Metadata: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Test Cases, Tasks, Suites, Names, Documentation,
+                and Metadata: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Test Cases, Tasks, Suites,
+                Names, Documentation, and Metadata</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Keywords, Arguments, Return Values, and Reusable
+              Abstractions
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Keywords, Arguments, Return Values, and Reusable
+                Abstractions: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Keywords, Arguments, Return Values, and Reusable
+                Abstractions: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Keywords, Arguments, Return Values, and Reusable
+                Abstractions: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Keywords, Arguments, Return Values, and Reusable
+                Abstractions: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Keywords, Arguments, Return
+                Values, and Reusable Abstractions</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Variables: Scalar, List, Dictionary, Environment,
+              and Dynamic Values
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Variables: Scalar, List, Dictionary,
+                Environment, and Dynamic Values: Core Concepts and Mental
+                Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Variables: Scalar, List, Dictionary,
+                Environment, and Dynamic Values: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Variables: Scalar, List, Dictionary,
+                Environment, and Dynamic Values: Configuration, Design Patterns,
+                and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Variables: Scalar, List, Dictionary,
+                Environment, and Dynamic Values: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Variables: Scalar, List,
+                Dictionary, Environment, and Dynamic Values</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>BuiltIn Library and Core Execution Semantics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>BuiltIn Library and Core Execution Semantics:
+                Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>BuiltIn Library and Core Execution Semantics:
+                Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>BuiltIn Library and Core Execution Semantics:
+                Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>BuiltIn Library and Core Execution Semantics:
+                Diagnostics, Failure Modes, and Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — BuiltIn Library and Core
+                Execution Semantics</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Collections, String, DateTime, OperatingSystem,
+              Process, and XML Libraries
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Collections, String, DateTime, OperatingSystem,
+                Process, and XML Libraries: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Collections, String, DateTime, OperatingSystem,
+                Process, and XML Libraries: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Collections, String, DateTime, OperatingSystem,
+                Process, and XML Libraries: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Collections, String, DateTime, OperatingSystem,
+                Process, and XML Libraries: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Collections, String, DateTime,
+                OperatingSystem, Process, and XML Libraries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Setups, Teardowns, Tags, Timeouts, and Suite
+              Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Setups, Teardowns, Tags, Timeouts, and Suite
+                Lifecycle: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Setups, Teardowns, Tags, Timeouts, and Suite
+                Lifecycle: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Setups, Teardowns, Tags, Timeouts, and Suite
+                Lifecycle: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Setups, Teardowns, Tags, Timeouts, and Suite
+                Lifecycle: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Setups, Teardowns, Tags,
+                Timeouts, and Suite Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>IF/ELSE, FOR, WHILE, TRY/EXCEPT, BREAK, CONTINUE,
+              and Control Flow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>IF/ELSE, FOR, WHILE, TRY/EXCEPT, BREAK,
+                CONTINUE, and Control Flow: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>IF/ELSE, FOR, WHILE, TRY/EXCEPT, BREAK,
+                CONTINUE, and Control Flow: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>IF/ELSE, FOR, WHILE, TRY/EXCEPT, BREAK,
+                CONTINUE, and Control Flow: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>IF/ELSE, FOR, WHILE, TRY/EXCEPT, BREAK,
+                CONTINUE, and Control Flow: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — IF/ELSE, FOR, WHILE,
+                TRY/EXCEPT, BREAK, CONTINUE, and Control Flow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Data-Driven Testing, Templates, Embedded Arguments,
+              and Variants
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Data-Driven Testing, Templates, Embedded
+                Arguments, and Variants: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Data-Driven Testing, Templates, Embedded
+                Arguments, and Variants: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Data-Driven Testing, Templates, Embedded
+                Arguments, and Variants: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Data-Driven Testing, Templates, Embedded
+                Arguments, and Variants: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Data-Driven Testing, Templates,
+                Embedded Arguments, and Variants</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Resource Files, Variable Files, Library Imports,
+              and Project Layout
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Resource Files, Variable Files, Library Imports,
+                and Project Layout: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Resource Files, Variable Files, Library Imports,
+                and Project Layout: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Resource Files, Variable Files, Library Imports,
+                and Project Layout: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Resource Files, Variable Files, Library Imports,
+                and Project Layout: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Resource Files, Variable Files,
+                Library Imports, and Project Layout</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Assertions, Error Handling, Expected Failures, and
+              Recovery Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Assertions, Error Handling, Expected Failures,
+                and Recovery Patterns: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Assertions, Error Handling, Expected Failures,
+                and Recovery Patterns: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Assertions, Error Handling, Expected Failures,
+                and Recovery Patterns: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Assertions, Error Handling, Expected Failures,
+                and Recovery Patterns: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Assertions, Error Handling,
+                Expected Failures, and Recovery Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Logs, Reports, output.xml, Rebot, and Result
+              Post-Processing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Logs, Reports, output.xml, Rebot, and Result
+                Post-Processing: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Logs, Reports, output.xml, Rebot, and Result
+                Post-Processing: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Logs, Reports, output.xml, Rebot, and Result
+                Post-Processing: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Logs, Reports, output.xml, Rebot, and Result
+                Post-Processing: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Logs, Reports, output.xml,
+                Rebot, and Result Post-Processing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Command-Line Selection, Tag Expressions, Reruns,
+              and Execution Profiles
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Command-Line Selection, Tag Expressions, Reruns,
+                and Execution Profiles: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Command-Line Selection, Tag Expressions, Reruns,
+                and Execution Profiles: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Command-Line Selection, Tag Expressions, Reruns,
+                and Execution Profiles: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Command-Line Selection, Tag Expressions, Reruns,
+                and Execution Profiles: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Command-Line Selection, Tag
+                Expressions, Reruns, and Execution Profiles</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>SeleniumLibrary and Browser Automation Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>SeleniumLibrary and Browser Automation
+                Integration: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>SeleniumLibrary and Browser Automation
+                Integration: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>SeleniumLibrary and Browser Automation
+                Integration: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>SeleniumLibrary and Browser Automation
+                Integration: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SeleniumLibrary and Browser
+                Automation Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>HTTP/API Automation, JSON Validation, and
+              Service-Level Testing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>HTTP/API Automation, JSON Validation, and
+                Service-Level Testing: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>HTTP/API Automation, JSON Validation, and
+                Service-Level Testing: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>HTTP/API Automation, JSON Validation, and
+                Service-Level Testing: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>HTTP/API Automation, JSON Validation, and
+                Service-Level Testing: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — HTTP/API Automation, JSON
+                Validation, and Service-Level Testing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Database, SSH, Filesystem, Process, and
+              Infrastructure Automation Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Database, SSH, Filesystem, Process, and
+                Infrastructure Automation Patterns: Core Concepts and Mental
+                Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Database, SSH, Filesystem, Process, and
+                Infrastructure Automation Patterns: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Database, SSH, Filesystem, Process, and
+                Infrastructure Automation Patterns: Configuration, Design
+                Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Database, SSH, Filesystem, Process, and
+                Infrastructure Automation Patterns: Diagnostics, Failure Modes,
+                and Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Database, SSH, Filesystem,
+                Process, and Infrastructure Automation Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>RPA Tasks, Long-Running Automation, and
+              Human-in-the-Loop Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>RPA Tasks, Long-Running Automation, and
+                Human-in-the-Loop Workflows: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>RPA Tasks, Long-Running Automation, and
+                Human-in-the-Loop Workflows: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>RPA Tasks, Long-Running Automation, and
+                Human-in-the-Loop Workflows: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>RPA Tasks, Long-Running Automation, and
+                Human-in-the-Loop Workflows: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — RPA Tasks, Long-Running
+                Automation, and Human-in-the-Loop Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Writing Python Test Libraries and the Library API
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Writing Python Test Libraries and the Library
+                API: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Writing Python Test Libraries and the Library
+                API: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Writing Python Test Libraries and the Library
+                API: Configuration, Design Patterns, and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Writing Python Test Libraries and the Library
+                API: Diagnostics, Failure Modes, and Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Writing Python Test Libraries
+                and the Library API</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Dynamic and Hybrid Libraries, Remote Libraries, and
+              Extension Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Dynamic and Hybrid Libraries, Remote Libraries,
+                and Extension Architecture: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Dynamic and Hybrid Libraries, Remote Libraries,
+                and Extension Architecture: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Dynamic and Hybrid Libraries, Remote Libraries,
+                and Extension Architecture: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Dynamic and Hybrid Libraries, Remote Libraries,
+                and Extension Architecture: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Dynamic and Hybrid Libraries,
+                Remote Libraries, and Extension Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Listeners, PreRunModifiers, Visitors, and
+              Programmatic Execution
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Listeners, PreRunModifiers, Visitors, and
+                Programmatic Execution: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Listeners, PreRunModifiers, Visitors, and
+                Programmatic Execution: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Listeners, PreRunModifiers, Visitors, and
+                Programmatic Execution: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Listeners, PreRunModifiers, Visitors, and
+                Programmatic Execution: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Listeners, PreRunModifiers,
+                Visitors, and Programmatic Execution</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Secrets, Credentials, Environment Isolation, and
+              Security Hygiene
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Secrets, Credentials, Environment Isolation, and
+                Security Hygiene: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Secrets, Credentials, Environment Isolation, and
+                Security Hygiene: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Secrets, Credentials, Environment Isolation, and
+                Security Hygiene: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Secrets, Credentials, Environment Isolation, and
+                Security Hygiene: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Secrets, Credentials,
+                Environment Isolation, and Security Hygiene</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Parallel Execution with Pabot, Sharding, and
+              Resource Contention
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Parallel Execution with Pabot, Sharding, and
+                Resource Contention: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Parallel Execution with Pabot, Sharding, and
+                Resource Contention: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Parallel Execution with Pabot, Sharding, and
+                Resource Contention: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Parallel Execution with Pabot, Sharding, and
+                Resource Contention: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Parallel Execution with Pabot,
+                Sharding, and Resource Contention</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>CI/CD Integration with GitHub Actions, GitLab CI,
+              and Jenkins
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>CI/CD Integration with GitHub Actions, GitLab
+                CI, and Jenkins: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Integration with GitHub
+                Actions, GitLab CI, and Jenkins</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>26</span>Containers, Reproducible Runtimes, and Distributed
+              Test Environments
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Containers, Reproducible Runtimes, and
+                Distributed Test Environments: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Containers, Reproducible Runtimes, and
+                Distributed Test Environments: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Containers, Reproducible Runtimes, and
+                Distributed Test Environments: Configuration, Design Patterns,
+                and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Containers, Reproducible Runtimes, and
+                Distributed Test Environments: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Containers, Reproducible
+                Runtimes, and Distributed Test Environments</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Style Guides, Robocop, Documentation, Naming, and
+              Maintainability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Style Guides, Robocop, Documentation, Naming,
+                and Maintainability: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Style Guides, Robocop, Documentation, Naming,
+                and Maintainability: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Style Guides, Robocop, Documentation, Naming,
+                and Maintainability: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Style Guides, Robocop, Documentation, Naming,
+                and Maintainability: Diagnostics, Failure Modes, and Production
+                Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Style Guides, Robocop,
+                Documentation, Naming, and Maintainability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Performance, Large Suites, Output Management, and
+              Execution Optimization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Performance, Large Suites, Output Management,
+                and Execution Optimization: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Performance, Large Suites, Output Management,
+                and Execution Optimization: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Performance, Large Suites, Output Management,
+                and Execution Optimization: Configuration, Design Patterns, and
+                Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Performance, Large Suites, Output Management,
+                and Execution Optimization: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Performance, Large Suites,
+                Output Management, and Execution Optimization</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Troubleshooting Imports, Scope, Timing, Encoding,
+              and Flaky Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Troubleshooting Imports, Scope, Timing,
+                Encoding, and Flaky Automation: Core Concepts and Mental
+                Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Troubleshooting Imports, Scope, Timing,
+                Encoding, and Flaky Automation: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Troubleshooting Imports, Scope, Timing,
+                Encoding, and Flaky Automation: Configuration, Design Patterns,
+                and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Troubleshooting Imports, Scope, Timing,
+                Encoding, and Flaky Automation: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Troubleshooting Imports, Scope,
+                Timing, Encoding, and Flaky Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Capstone: Build a Governed End-to-End Robot
+              Framework Automation Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Capstone: Build a Governed End-to-End Robot
+                Framework Automation Platform: Core Concepts and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Capstone: Build a Governed End-to-End Robot
+                Framework Automation Platform: Guided Hands-On Workflow</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Capstone: Build a Governed End-to-End Robot
+                Framework Automation Platform: Configuration, Design Patterns,
+                and Trade-Offs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Capstone: Build a Governed End-to-End Robot
+                Framework Automation Platform: Diagnostics, Failure Modes, and
+                Production Practices</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Capstone: Build a Governed
+                End-to-End Robot Framework Automation Platform</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Robot Framework</a><span>/</span
+          ><span>Chapter 26 · Lesson 05</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 26</span><i></i><span>Lesson 05</span><i></i
+            ><span>260–360 min</span>
+          </div>
+          <h1>
+            Checkpoint Lab — Containers, Reproducible Runtimes, and Distributed
+            Test Environments
+          </h1>
+          <p>
+            Containerize a deterministic Robot Framework suite, prove
+            host/container semantic equivalence, inject and diagnose a
+            result-mount path failure, preserve evidence, and document the
+            filesystem/network ownership contract.
+          </p>
+          <div class="lesson-tags">
+            <span>Checkpoint lab</span><span>Deterministic suite</span
+            ><span>Mount failure</span><span>Evidence packet</span
+            ><span>Cleanup</span>
+          </div>
+        </header>
+        <section class="lesson-objectives" id="objectives">
+          <h2>Checkpoint outcomes</h2>
+          <ul>
+            <li>
+              Build a deterministic non-root Robot image and record
+              image/base/dependency provenance.
+            </li>
+            <li>
+              Predict and verify source, process-user, result-volume and
+              output-state changes before execution.
+            </li>
+            <li>
+              Run the same suite on host and in the container and prove semantic
+              equivalence.
+            </li>
+            <li>
+              Inject a wrong result-mount destination, preserve the stopped
+              container, recover its evidence, and repair the runtime contract.
+            </li>
+            <li>
+              Produce an operator-ready evidence ledger describing filesystem,
+              network, user and cleanup boundaries.
+            </li>
+          </ul>
+        </section>
+        <div class="callout">
+          <p>
+            <strong
+              >Current compatibility baseline — verified 2026-08-31.</strong
+            >
+            Robot Framework <strong>7.4.2</strong> is the stable course baseline
+            and requires Python 3.8+. The mandatory container lab uses the
+            Docker Official Image <code>python:3.12.14-slim-bookworm</code> and
+            installs the Robot Framework 7.4.2 universal wheel by exact version
+            and SHA-256 hash. Docker image tags are mutable, so the lesson
+            records the resolved image digest and explains full digest pinning
+            for controlled pipelines. Pabot <strong>5.2.2</strong> is discussed
+            as the current stable optional parallel executor; 5.3.0b1 is
+            prerelease and is not required. No browser library, external
+            API/database/SSH service, CI provider, Kubernetes cluster, paid
+            platform, real credential, or production target is required.
+          </p>
+        </div>
+        <section id="scenario">
+          <h2>1. Checkpoint scenario and safety boundary</h2>
+          <p>
+            You will reuse the <code>rf26-container-lab</code> project from
+            Lesson 2. Everything stays local: one Python/Robot image, one
+            deterministic Robot suite, Docker-managed named volumes and host
+            evidence directories. No public ports, production systems,
+            credentials, browsers, databases or external services are involved.
+          </p>
+          <div class="diagram-card">
+            <div class="diagram-label">Checkpoint state transitions</div>
+            <pre class="mermaid">
+flowchart TD
+    A[Host source] --&gt; B[rf26 image]
+    B --&gt; C[Host baseline PASS]
+    B --&gt; D[Container PASS]
+    D --&gt; E[Correct result volume]
+    B --&gt; F[Injected wrong mount target]
+    F --&gt; G[Robot PASS but volume empty]
+    G --&gt; H[Inspect + recover stopped-container results]
+    H --&gt; I[Fix destination + rerun]
+    I --&gt; J[Evidence packet + cleanup]
+</pre
+            >
+          </div>
+          <p>
+            The injected failure is deliberately about
+            <em>evidence persistence</em>, not the Robot assertions. This
+            demonstrates an important production lesson: application/test
+            success and operational evidence success are separate contracts.
+          </p>
+        </section>
+        <section id="preflight">
+          <h2>2. Exact preflight and version manifest</h2>
+          <pre><code class="language-bash">python --version
+python -m robot --version
+docker version
+docker info
+
+docker image inspect python:3.12.14-slim-bookworm --format '{{json .RepoDigests}}'   &gt; evidence/checkpoint-base-digest.json
+
+docker image inspect rf26-robot:7.4.2 --format '{{.Id}} {{.Config.User}}'   &gt; evidence/checkpoint-image.txt</code></pre>
+          <p>
+            Expected course assumptions: Robot 7.4.2, Python 3.12.14 inside the
+            image, non-root image user <code>10001:10001</code>. If your local
+            Docker Engine/Desktop differs, record it; do not pretend the engine
+            itself is part of the image.
+          </p>
+        </section>
+        <section id="prediction">
+          <h2>3. Predict before mutation</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Prediction</th>
+                  <th>Before action</th>
+                  <th>Expected after action</th>
+                  <th>Independent verification</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Image build does not create host Robot result files</td>
+                  <td>results directories empty</td>
+                  <td>image exists; result dirs still empty</td>
+                  <td>
+                    <code>docker image inspect</code> + host directory listing
+                  </td>
+                </tr>
+                <tr>
+                  <td>Correct named volume captures Robot outputs</td>
+                  <td>new volume empty</td>
+                  <td>
+                    output.xml/log/report/proof exist in mounted destination
+                  </td>
+                  <td>inspect mounts + copy/list results</td>
+                </tr>
+                <tr>
+                  <td>Wrong mount target does not fail test assertions</td>
+                  <td>wrong volume empty</td>
+                  <td>
+                    Robot exits 0 but writes to image-owned /workspace/results
+                  </td>
+                  <td>
+                    container exit + mount inspection + internal file listing
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Removing container before recovery would destroy
+                    internal-only evidence
+                  </td>
+                  <td>stopped broken container exists</td>
+                  <td>evidence recoverable until rm</td>
+                  <td><code>docker cp</code> before <code>docker rm</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Write your own expected image ID/user, mount destination and
+            artifact list into <code>evidence/predictions.md</code> before
+            running the mutation steps.
+          </p>
+        </section>
+        <section id="host">
+          <h2>4. Establish the host baseline and retain its exit code</h2>
+          <pre><code class="language-bash">rm -rf results-host/* results-container/* 2&gt;/dev/null || true
+
+python -m robot   --variable RUNTIME_LABEL:host-checkpoint   --outputdir results-host   tests/runtime_contract.robot
+printf 'host_exit=%s
+' "$?" &gt; evidence/checkpoint-host-exit.txt</code></pre>
+          <p>
+            PowerShell users should preserve <code>$LASTEXITCODE</code> instead.
+            Verify four host artifacts: <code>output.xml</code>,
+            <code>log.html</code>, <code>report.html</code>, and
+            <code>proof.txt</code>.
+          </p>
+        </section>
+        <section id="correct">
+          <h2>
+            5. Correct container run: explicit named volume, retained container,
+            exported evidence
+          </h2>
+          <pre><code class="language-bash">docker volume create rf26-checkpoint-results
+
+docker create --name rf26-checkpoint   --mount type=volume,src=rf26-checkpoint-results,dst=/workspace/results   rf26-robot:7.4.2   --variable RUNTIME_LABEL:container-checkpoint   --outputdir /workspace/results   /workspace/tests/runtime_contract.robot
+
+docker start --attach rf26-checkpoint
+docker inspect rf26-checkpoint --format '{{.State.ExitCode}}'   &gt; evidence/checkpoint-container-exit.txt
+docker inspect rf26-checkpoint --format '{{json .Mounts}}'   &gt; evidence/checkpoint-container-mounts.json
+docker cp rf26-checkpoint:/workspace/results/. results-container/</code></pre>
+          <p>
+            Verify the mount destination is exactly
+            <code>/workspace/results</code>. The container's Robot exit code
+            should be 0 and the exported host directory should contain the same
+            four artifact types as the host baseline.
+          </p>
+        </section>
+        <section id="compare">
+          <h2>6. Prove semantic equivalence</h2>
+          <pre><code class="language-bash">python tools/compare_results.py
+sha256sum results-host/proof.txt results-container/proof.txt 2&gt;/dev/null || true</code></pre>
+          <p>
+            The XML comparison script proves matching test names/statuses; the
+            proof files demonstrate matching deterministic domain evidence. The
+            HTML/XML result files themselves need not be byte-identical because
+            runtime metadata differs.
+          </p>
+        </section>
+        <section id="inject">
+          <h2>
+            7. Inject the mount-path failure without deleting the failed runtime
+          </h2>
+          <pre><code class="language-bash">docker volume create rf26-broken-results
+
+docker create --name rf26-broken   --mount type=volume,src=rf26-broken-results,dst=/workspace/wrong-results   rf26-robot:7.4.2   --variable RUNTIME_LABEL:broken-mount   --outputdir /workspace/results   /workspace/tests/runtime_contract.robot
+
+docker start --attach rf26-broken
+
+docker inspect rf26-broken --format '{{.State.ExitCode}}'   &gt; evidence/broken-exit.txt
+docker inspect rf26-broken --format '{{json .Mounts}}'   &gt; evidence/broken-mounts.json</code></pre>
+          <p>
+            Expected surprise: Robot can still PASS because
+            <code>/workspace/results</code> exists and is writable inside the
+            image, but the named volume is attached to
+            <code>/workspace/wrong-results</code>. If the container were started
+            with <code>--rm</code>, the test evidence at the real output
+            directory would disappear on removal.
+          </p>
+        </section>
+        <section id="diagnose">
+          <h2>
+            8. Diagnose independently: prove the volume is empty and the stopped
+            container still owns the missing evidence
+          </h2>
+          <pre><code class="language-bash"># List the wrongly mounted volume using the same image as a harmless inspector.
+docker run --rm --entrypoint python   --mount type=volume,src=rf26-broken-results,dst=/check   rf26-robot:7.4.2   -c 'import os; print(os.listdir("/check"))'   &gt; evidence/broken-volume-list.txt
+
+# Recover the actual Robot result directory before deleting the stopped container.
+mkdir -p recovered-broken
+docker cp rf26-broken:/workspace/results/. recovered-broken/
+find recovered-broken -maxdepth 1 -type f -printf "%f\n"   &gt; evidence/broken-internal-results.txt</code></pre>
+          <p>
+            <code>docker cp</code> works from a stopped container, so the exact
+            first-run files can be recovered without restarting the process. The
+            authoritative diagnosis is the mount destination from
+            <code>docker inspect</code> plus the recovered files that actually
+            existed at <code>/workspace/results</code>.
+          </p>
+          <p>
+            This is why the diagnostic sequence preserves the stopped container:
+            you can recover first-failure evidence without rerunning and
+            changing timestamps/state.
+          </p>
+        </section>
+        <section id="repair">
+          <h2>
+            9. Apply the least destructive correction and rerun only the broken
+            contract
+          </h2>
+          <pre><code class="language-bash">docker rm rf26-broken
+# Keep rf26-broken-results until after diagnosis; it proves the wrong mount was empty.
+
+docker create --name rf26-repaired   --mount type=volume,src=rf26-broken-results,dst=/workspace/results   rf26-robot:7.4.2   --variable RUNTIME_LABEL:repaired-mount   --outputdir /workspace/results   /workspace/tests/runtime_contract.robot
+
+docker start --attach rf26-repaired
+docker inspect rf26-repaired --format '{{json .Mounts}}'   &gt; evidence/repaired-mounts.json
+mkdir -p repaired-results
+docker cp rf26-repaired:/workspace/results/. repaired-results/</code></pre>
+          <p>
+            The only material change is the mount destination. No test code,
+            timeout, retry, privilege or assertion was changed because none of
+            those layers caused the defect.
+          </p>
+        </section>
+        <section id="ledger">
+          <h2>10. Build the evidence ledger/operator runbook</h2>
+          <pre><code class="language-text">RF26 checkpoint evidence ledger
+-------------------------------
+Source revision / git status:
+Base image tag + resolved digest:
+Built image ID:
+Container configured user:
+Robot version / Python version:
+Host command + exit code:
+Correct container command + exit code:
+Correct volume destination:
+Wrong volume destination:
+Recovered internal result path:
+Repaired volume destination:
+Host/container semantic comparison:
+Network exposure: none (no published ports)
+Secrets used: none
+CPU/memory limits: record if configured
+Cleanup owner/date:
+Artifacts retained:
+  - host output.xml/log.html/report.html/proof.txt
+  - container output.xml/log.html/report.html/proof.txt
+  - base/image provenance
+  - correct/broken/repaired mount inspections
+  - broken-volume listing
+  - recovered first-failure evidence</code></pre>
+          <p>
+            This ledger is deliberately operational. A reviewer can see what
+            changed, which layer failed, how evidence was preserved, and why the
+            repair was limited to a mount destination.
+          </p>
+        </section>
+        <section id="verification">
+          <h2>11. Verification checklist</h2>
+          <ul>
+            <li>
+              The image is built from <code>python:3.12.14-slim-bookworm</code>;
+              its resolved base digest is recorded.
+            </li>
+            <li>Robot 7.4.2 is hash-pinned in the image.</li>
+            <li>
+              The image runs as numeric non-root user <code>10001:10001</code>.
+            </li>
+            <li>
+              Host and correct-container runs have the same Robot test names and
+              PASS statuses.
+            </li>
+            <li>
+              Both retained result sets contain <code>proof.txt</code> with
+              <code>rf26-container-contract</code>.
+            </li>
+            <li>
+              The intentionally wrong volume destination is visible in
+              <code>broken-mounts.json</code>.
+            </li>
+            <li>The wrong volume does not contain the Robot result files.</li>
+            <li>
+              First-failure results were recovered from the stopped broken
+              container before deletion.
+            </li>
+            <li>
+              The repaired run changes the mount destination, not the Robot
+              assertions/timeouts.
+            </li>
+            <li>
+              No ports, production endpoints, credentials, privileged mode or
+              Docker socket mounts were used.
+            </li>
+          </ul>
+        </section>
+        <section id="cleanup">
+          <h2>12. Cleanup/rollback after evidence is accepted</h2>
+          <pre><code class="language-bash">docker rm -f rf26-checkpoint rf26-repaired 2&gt;/dev/null || true
+docker volume rm rf26-checkpoint-results rf26-broken-results 2&gt;/dev/null || true
+
+# Optional after review:
+docker image rm rf26-robot:7.4.2
+
+# Do NOT run docker system prune as part of this lab.
+# Retain evidence/, results-host/, results-container/, recovered-broken/, repaired-results/
+# until your review/retention policy says they can be removed.</code></pre>
+          <p>
+            Cleanup is narrowly scoped to named resources created by the lab. A
+            global prune could destroy unrelated developer or CI evidence and is
+            intentionally excluded.
+          </p>
+        </section>
+        <section id="production-model">
+          <h2>
+            13. What Chapter 26 adds to a production Robot operating model
+          </h2>
+          <p>
+            You can now treat the container runtime as a governed execution
+            boundary rather than a black box. The production model records
+            image/dependency provenance, non-root identity, runtime mounts and
+            networks, capacity, Robot exit status and durable evidence. It also
+            distinguishes Pabot worker isolation from container/CI isolation and
+            avoids assuming that a fresh container resets external state.
+          </p>
+          <p>
+            Chapter 27 moves from runtime reproducibility to source
+            maintainability: the Robot Framework Style Guide, current Robocop
+            linting/formatting, documentation and naming conventions become
+            enforceable review/CI contracts.
+          </p>
+        </section>
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is the injected failure valuable even though the Robot
+                tests still PASS?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                It proves that test status and evidence persistence are separate
+                contracts. A green assertion result can still be operationally
+                unusable if output.xml/log/report disappear with the container.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why keep the broken container stopped instead of immediately
+                rerunning with the correct mount?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                The stopped instance preserves the exact first-failure
+                filesystem. Recovering it proves the diagnosis without replacing
+                evidence with a second run.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Which state changed in the repair: Robot model, image, or
+                container runtime?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Only container runtime configuration—the mount destination. The
+                Robot suite and image remain unchanged.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >If this lab later used Pabot inside four CI jobs, what
+                additional evidence would be required?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Record Pabot version/process count, worker/output isolation and
+                capacity math, then prove external files/ports/accounts/records
+                do not collide across the multiplied workers.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is “no published ports” part of the evidence
+                ledger?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                It proves the mandatory lab did not create an unnecessary
+                network exposure boundary. Networking was not needed to satisfy
+                the checkpoint.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section id="summary">
+          <h2>14. Checkpoint complete</h2>
+          <p>
+            The checkpoint demonstrates deterministic host/container behavior,
+            explicit image and package provenance, non-root runtime identity,
+            durable result handling, a recoverable mount-path failure and
+            narrowly scoped cleanup. You have a repeatable pattern for
+            containerizing Robot Framework without confusing containerization
+            with isolation or losing the evidence needed to debug it.
+          </p>
+        </section>
+        
+        <section class="next-concepts"><span>Next lesson</span><h3>Style Guides, Robocop, Documentation, Naming, and Maintainability: Core Concepts and Mental Model</h3><p>Continue with Style Guides, Robocop, Documentation, Naming, and Maintainability: Core Concepts and Mental Model. It builds directly on the state, evidence, and operating assumptions established here, so carry those constraints forward rather than treating the next page as an isolated topic.</p></section>
+        <section id="references">
+          <h2>References and version anchors</h2>
+          <ul>
+            <li>
+              <a
+                href="https://robotframework.org/robotframework/7.4.2/RobotFrameworkUserGuide.html"
+                rel="noopener"
+                target="_blank"
+                >Robot Framework 7.4.2 User Guide</a
+              >
+              — execution/result semantics used inside the container
+            </li>
+            <li>
+              <a
+                href="https://pypi.org/project/robotframework/7.4.2/"
+                rel="noopener"
+                target="_blank"
+                >Robot Framework 7.4.2 PyPI</a
+              >
+              — stable version, Python requirement and distribution hashes
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/build/building/best-practices/"
+                rel="noopener"
+                target="_blank"
+                >Docker build best practices</a
+              >
+              — reproducible image and non-root guidance
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/reference/cli/docker/container/run"
+                rel="noopener"
+                target="_blank"
+                >Docker run reference</a
+              >
+              — runtime mount/read-only behavior
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/containers/resource_constraints/"
+                rel="noopener"
+                target="_blank"
+                >Docker resource constraints</a
+              >
+              — capacity evidence for future parallel/container runs
+            </li>
+            <li>
+              <a
+                href="https://github.com/mkorpela/pabot/releases"
+                rel="noopener"
+                target="_blank"
+                >Pabot releases</a
+              >
+              — optional current parallel-executor version anchor
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="Lesson4.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="../Chapter27/Lesson1.html">Next chapter</a>
+        </nav>
+      
+        <section aria-labelledby="support-title" class="support-panel" id="support">
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">Support free, practical DevOps education.</h2>
+            <p>Every lesson is designed to remain readable in a browser, downloadable from GitHub, and usable without a paid learning platform. Contributions help expand and maintain the curriculum.</p>
+            <div aria-label="Abolfazl Mohammadijoo social links" class="social-row">
+              <a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">GitHub</a>
+              <a href="https://ir.linkedin.com/in/abolfazlmohammadijoo" rel="noopener" target="_blank">LinkedIn</a>
+              <a href="https://x.com/mohammadijoo" rel="noopener" target="_blank">X</a>
+              <a href="https://www.youtube.com/@abolfazlmohammadijoo" rel="noopener" target="_blank">YouTube</a>
+              <a href="https://mohammadijoo.ir/en/" rel="noopener" target="_blank">Website</a>
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head"><span class="network-dot"></span><span>Ethereum / ERC-20</span></div>
+            <code data-wallet-address="">0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code>
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewBox="0 0 24 24"><rect height="11" rx="2" width="11" x="8" y="8"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg><span>Copy address</span>
+            </button>
+            <small>Send only Ethereum/ERC-20 compatible assets to this address.</small>
+          </div>
+        </section>
+      
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"><span aria-hidden="true" class="brand-mark mini">&gt;_</span> DevOps Academy</a>
+            <p>A browser-native learning path for modern software delivery and operations.</p>
+          </div>
+          <div class="footer-meta">
+            <span>Created by <a href="https://github.com/mohammadijoo" rel="noopener" target="_blank">Abolfazl Mohammadijoo</a></span><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+  
+    <script data-robot-framework-toc-unnumbered>
+      (() => {
+        const toc = document.querySelector("[data-on-page-toc]");
+        if (!toc) return;
+
+        const stripSectionNumber = (label) =>
+          label.replace(
+            /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+            "",
+          );
+
+        const normalizeTocLabels = () => {
+          toc.querySelectorAll("a").forEach((link) => {
+            const cleaned = stripSectionNumber(link.textContent);
+            if (cleaned !== link.textContent) link.textContent = cleaned;
+          });
+        };
+
+        normalizeTocLabels();
+        const observer = new MutationObserver(normalizeTocLabels);
+        observer.observe(toc, { childList: true, subtree: true, characterData: true });
+      })();
+    </script>
+  </body>
+</html>
