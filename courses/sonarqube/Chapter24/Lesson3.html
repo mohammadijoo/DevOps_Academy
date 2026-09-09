@@ -1,0 +1,2727 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Choose one versus multiple SonarQube projects, build-native modules versus explicit scanner base directories, generated-code policies, concurrency controls, and edition-aware aggregation using observable ownership contracts."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Monorepos, Multi-Module Builds, Generated Code, and Complex Repository
+      Layouts: Configuration, Design Patterns, and Trade-Offs | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script defer="" src="../highlight-sonarqube.js"></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="sonarqube-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      .lesson-article .evidence-card {
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        margin: 20px 0;
+        background: rgba(255, 255, 255, 0.018);
+      }
+      .lesson-article .evidence-card > strong {
+        color: var(--accent);
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+    <style id="sonarqube-ch09-base-styles">
+      .lesson-article .state-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+        gap: 14px;
+        margin: 22px 0;
+      }
+      .lesson-article .state-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 18px;
+      }
+      .lesson-article .state-card h3 {
+        margin: 0 0 8px;
+      }
+      .lesson-article .evidence-chain {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        background: var(--surface-2);
+        margin: 22px 0;
+      }
+      .lesson-article .evidence-chain code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    </style>
+    <style id="sonarqube-ch09-prior-styles">
+      .lesson-article .scanner-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+        gap: 14px;
+        margin: 22px 0;
+      }
+      .lesson-article .scanner-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 18px;
+      }
+      .lesson-article .scanner-card h3 {
+        margin: 0 0 8px;
+      }
+      .lesson-article .evidence-chain {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        background: var(--surface-2);
+        margin: 22px 0;
+      }
+      .lesson-article .evidence-chain code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    </style>
+    <style id="sonarqube-ch09-policy-styles">
+      .lesson-article .evidence-chain {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        background: var(--surface-2);
+        margin: 22px 0;
+        line-height: 1.9;
+      }
+      .lesson-article .evidence-chain code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+    </style>
+    <style id="sonarqube-ch24-local-styles">
+      .lesson-article .evidence-chain {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        background: var(--surface-2);
+        margin: 22px 0;
+        line-height: 1.85;
+      }
+      .lesson-article .evidence-chain code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .decision-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
+        gap: 14px;
+        margin: 22px 0;
+      }
+      .lesson-article .decision-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        padding: 18px;
+      }
+      .lesson-article .decision-card h3 {
+        margin: 0 0 8px;
+      }
+      .lesson-article blockquote {
+        border-left: 4px solid var(--accent);
+        margin: 22px 0;
+        padding: 12px 18px;
+        background: var(--surface-2);
+        border-radius: 0 12px 12px 0;
+      }
+      .lesson-article .version-note-card code {
+        white-space: normal;
+      }
+      .lesson-article .evidence-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface-2);
+        padding: 18px;
+        margin: 20px 0;
+      }
+      /* SonarQube course-wide overflow hardening */
+      body.lesson-page {
+        overflow-x: clip;
+      }
+      .lesson-shell,
+      .lesson-article,
+      .lesson-header,
+      .lesson-article > section,
+      .support-panel,
+      .site-footer {
+        min-width: 0;
+        max-width: 100%;
+      }
+      .lesson-header h1,
+      .lesson-article h2,
+      .lesson-article h3,
+      .lesson-article p,
+      .lesson-article li,
+      .lesson-article td,
+      .lesson-article th,
+      .lesson-article blockquote,
+      .lesson-tags span {
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      .lesson-article :not(pre) > code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .lesson-article pre,
+      .lesson-article .code-block,
+      .lesson-article .table-wrap,
+      .lesson-article .diagram-card {
+        max-width: 100%;
+      }
+      .lesson-article pre,
+      .lesson-article .code-block {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .lesson-article img,
+      .lesson-article video,
+      .lesson-article iframe {
+        max-width: 100%;
+        height: auto;
+      }
+      .lesson-article .mermaid {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      .lesson-article .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+      .breadcrumbs,
+      .lesson-tags,
+      .lesson-pagination,
+      .social-row {
+        max-width: 100%;
+        flex-wrap: wrap;
+      }
+      @media (max-width: 760px) {
+        .lesson-article,
+        .lesson-header {
+          min-width: 0;
+        }
+        .lesson-header h1 {
+          font-size: clamp(1.65rem, 8vw, 2.45rem);
+        }
+        .lesson-pagination a {
+          min-width: 0;
+          overflow-wrap: anywhere;
+        }
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg></a
+          ><button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg></button
+          ><button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">SQ</span>
+            <div>
+              <small>Course 12</small><strong>SonarQube Complete Course</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 170 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="SonarQube course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Static Analysis, Clean Code, Technical Debt, and
+              Quality Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Static Analysis, Clean Code, Technical Debt, and
+                Quality Governance: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Static Analysis, Clean Code, Technical Debt, and
+                Quality Governance: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Static Analysis, Clean Code, Technical Debt, and
+                Quality Governance: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Static Analysis, Clean Code, Technical Debt, and
+                Quality Governance: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Static Analysis, Clean Code,
+                Technical Debt, and Quality Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>SonarQube Product Model, Editions, Components, and
+              Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>SonarQube Product Model, Editions, Components,
+                and Architecture: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>SonarQube Product Model, Editions, Components,
+                and Architecture: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>SonarQube Product Model, Editions, Components,
+                and Architecture: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>SonarQube Product Model, Editions, Components,
+                and Architecture: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SonarQube Product Model,
+                Editions, Components, and Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Installation Prerequisites, Database Planning, and
+              First Server
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Installation Prerequisites, Database Planning,
+                and First Server: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Installation Prerequisites, Database Planning,
+                and First Server: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Installation Prerequisites, Database Planning,
+                and First Server: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Installation Prerequisites, Database Planning,
+                and First Server: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Installation Prerequisites,
+                Database Planning, and First Server</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Docker, Containers, Persistent Storage, and
+              Production Deployment
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Docker, Containers, Persistent Storage, and
+                Production Deployment: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Docker, Containers, Persistent Storage, and
+                Production Deployment: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Docker, Containers, Persistent Storage, and
+                Production Deployment: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Docker, Containers, Persistent Storage, and
+                Production Deployment: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker, Containers, Persistent
+                Storage, and Production Deployment</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Kubernetes and OpenShift Deployment Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Kubernetes and OpenShift Deployment Patterns:
+                Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Kubernetes and OpenShift Deployment Patterns:
+                Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Kubernetes and OpenShift Deployment Patterns:
+                Configuration, Design Patterns, and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Kubernetes and OpenShift Deployment Patterns:
+                Diagnostics, Failure Modes, and Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Kubernetes and OpenShift
+                Deployment Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Projects, Tokens, Scanners, Analysis Parameters,
+              and First Analysis
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Projects, Tokens, Scanners, Analysis Parameters,
+                and First Analysis: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Projects, Tokens, Scanners, Analysis Parameters,
+                and First Analysis: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Projects, Tokens, Scanners, Analysis Parameters,
+                and First Analysis: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Projects, Tokens, Scanners, Analysis Parameters,
+                and First Analysis: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Projects, Tokens, Scanners,
+                Analysis Parameters, and First Analysis</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Scanner Ecosystem: CLI, Maven, Gradle, .NET, and
+              Build Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Scanner Ecosystem: CLI, Maven, Gradle, .NET, and
+                Build Integration: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Scanner Ecosystem: CLI, Maven, Gradle, .NET, and
+                Build Integration: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Scanner Ecosystem: CLI, Maven, Gradle, .NET, and
+                Build Integration: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Scanner Ecosystem: CLI, Maven, Gradle, .NET, and
+                Build Integration: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Scanner Ecosystem: CLI, Maven,
+                Gradle, .NET, and Build Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Language Analysis, Sensors, SCM Data, and
+              Source-Code Indexing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Language Analysis, Sensors, SCM Data, and
+                Source-Code Indexing: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Language Analysis, Sensors, SCM Data, and
+                Source-Code Indexing: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Language Analysis, Sensors, SCM Data, and
+                Source-Code Indexing: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Language Analysis, Sensors, SCM Data, and
+                Source-Code Indexing: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Language Analysis, Sensors, SCM
+                Data, and Source-Code Indexing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Rules, Rule Types, Severities, Quality Profiles,
+              and Customization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Rules, Rule Types, Severities, Quality Profiles,
+                and Customization: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Rules, Rule Types, Severities, Quality Profiles,
+                and Customization: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Rules, Rule Types, Severities, Quality Profiles,
+                and Customization: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Rules, Rule Types, Severities, Quality Profiles,
+                and Customization: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Rules, Rule Types, Severities,
+                Quality Profiles, and Customization</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Issues, Statuses, Assignments, False Positives, and
+              Resolution Workflow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Issues, Statuses, Assignments, False Positives,
+                and Resolution Workflow: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Issues, Statuses, Assignments, False Positives,
+                and Resolution Workflow: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Issues, Statuses, Assignments, False Positives,
+                and Resolution Workflow: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Issues, Statuses, Assignments, False Positives,
+                and Resolution Workflow: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Issues, Statuses, Assignments,
+                False Positives, and Resolution Workflow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Quality Gates, Conditions, Policies, and Pipeline
+              Enforcement
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Quality Gates, Conditions, Policies, and
+                Pipeline Enforcement: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Quality Gates, Conditions, Policies, and
+                Pipeline Enforcement: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Quality Gates, Conditions, Policies, and
+                Pipeline Enforcement: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Quality Gates, Conditions, Policies, and
+                Pipeline Enforcement: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Quality Gates, Conditions,
+                Policies, and Pipeline Enforcement</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>New Code, Clean-as-You-Code, Baselines, and Legacy
+              Modernization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>New Code, Clean-as-You-Code, Baselines, and
+                Legacy Modernization: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>New Code, Clean-as-You-Code, Baselines, and
+                Legacy Modernization: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>New Code, Clean-as-You-Code, Baselines, and
+                Legacy Modernization: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>New Code, Clean-as-You-Code, Baselines, and
+                Legacy Modernization: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — New Code, Clean-as-You-Code,
+                Baselines, and Legacy Modernization</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Metrics: Reliability, Maintainability, Security,
+              Complexity, and Size
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Metrics: Reliability, Maintainability, Security,
+                Complexity, and Size: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Metrics: Reliability, Maintainability, Security,
+                Complexity, and Size: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Metrics: Reliability, Maintainability, Security,
+                Complexity, and Size: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Metrics: Reliability, Maintainability, Security,
+                Complexity, and Size: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Metrics: Reliability,
+                Maintainability, Security, Complexity, and Size</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Coverage, Test Execution Data, Duplication, and
+              External Analyzer Reports
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Coverage, Test Execution Data, Duplication, and
+                External Analyzer Reports: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Coverage, Test Execution Data, Duplication, and
+                External Analyzer Reports: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Coverage, Test Execution Data, Duplication, and
+                External Analyzer Reports: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Coverage, Test Execution Data, Duplication, and
+                External Analyzer Reports: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Coverage, Test Execution Data,
+                Duplication, and External Analyzer Reports</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Security Hotspots, Vulnerabilities, Taint Analysis,
+              and Review Workflow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Security Hotspots, Vulnerabilities, Taint
+                Analysis, and Review Workflow: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Security Hotspots, Vulnerabilities, Taint
+                Analysis, and Review Workflow: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Security Hotspots, Vulnerabilities, Taint
+                Analysis, and Review Workflow: Configuration, Design Patterns,
+                and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Security Hotspots, Vulnerabilities, Taint
+                Analysis, and Review Workflow: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Security Hotspots,
+                Vulnerabilities, Taint Analysis, and Review Workflow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Secrets, Dependency/Supply-Chain Signals, and
+              Advanced Security Boundaries
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Secrets, Dependency/Supply-Chain Signals, and
+                Advanced Security Boundaries: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Secrets, Dependency/Supply-Chain Signals, and
+                Advanced Security Boundaries: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Secrets, Dependency/Supply-Chain Signals, and
+                Advanced Security Boundaries: Configuration, Design Patterns,
+                and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Secrets, Dependency/Supply-Chain Signals, and
+                Advanced Security Boundaries: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Secrets,
+                Dependency/Supply-Chain Signals, and Advanced Security
+                Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Branches, Pull Requests, Merge Requests, and
+              Edition-Aware Analysis
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Branches, Pull Requests, Merge Requests, and
+                Edition-Aware Analysis: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Branches, Pull Requests, Merge Requests, and
+                Edition-Aware Analysis: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Branches, Pull Requests, Merge Requests, and
+                Edition-Aware Analysis: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Branches, Pull Requests, Merge Requests, and
+                Edition-Aware Analysis: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Branches, Pull Requests, Merge
+                Requests, and Edition-Aware Analysis</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>GitHub, GitLab, Azure DevOps, and Bitbucket
+              Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>GitHub, GitLab, Azure DevOps, and Bitbucket
+                Integration: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>GitHub, GitLab, Azure DevOps, and Bitbucket
+                Integration: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>GitHub, GitLab, Azure DevOps, and Bitbucket
+                Integration: Configuration, Design Patterns, and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>GitHub, GitLab, Azure DevOps, and Bitbucket
+                Integration: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitHub, GitLab, Azure DevOps,
+                and Bitbucket Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>CI Integration with GitHub Actions, GitLab CI,
+              Jenkins, and Other Runners
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>CI Integration with GitHub Actions, GitLab CI,
+                Jenkins, and Other Runners: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>CI Integration with GitHub Actions, GitLab CI,
+                Jenkins, and Other Runners: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>CI Integration with GitHub Actions, GitLab CI,
+                Jenkins, and Other Runners: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>CI Integration with GitHub Actions, GitLab CI,
+                Jenkins, and Other Runners: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI Integration with GitHub
+                Actions, GitLab CI, Jenkins, and Other Runners</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>SonarQube for IDE Connected Mode and Developer
+              Feedback Loops
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>SonarQube for IDE Connected Mode and Developer
+                Feedback Loops: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>SonarQube for IDE Connected Mode and Developer
+                Feedback Loops: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>SonarQube for IDE Connected Mode and Developer
+                Feedback Loops: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>SonarQube for IDE Connected Mode and Developer
+                Feedback Loops: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SonarQube for IDE Connected
+                Mode and Developer Feedback Loops</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Users, Groups, Permissions, Tokens, Authentication,
+              and Authorization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Users, Groups, Permissions, Tokens,
+                Authentication, and Authorization: Core Concepts and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Users, Groups, Permissions, Tokens,
+                Authentication, and Authorization: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Users, Groups, Permissions, Tokens,
+                Authentication, and Authorization: Configuration, Design
+                Patterns, and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Users, Groups, Permissions, Tokens,
+                Authentication, and Authorization: Diagnostics, Failure Modes,
+                and Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Users, Groups, Permissions,
+                Tokens, Authentication, and Authorization</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>SAML, LDAP, OIDC/SSO, Proxies, TLS, and Network
+              Security
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>SAML, LDAP, OIDC/SSO, Proxies, TLS, and Network
+                Security: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>SAML, LDAP, OIDC/SSO, Proxies, TLS, and Network
+                Security: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>SAML, LDAP, OIDC/SSO, Proxies, TLS, and Network
+                Security: Configuration, Design Patterns, and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>SAML, LDAP, OIDC/SSO, Proxies, TLS, and Network
+                Security: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SAML, LDAP, OIDC/SSO, Proxies,
+                TLS, and Network Security</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Web API, Webhooks, Automation, Provisioning, and
+              Policy as Code
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Web API, Webhooks, Automation, Provisioning, and
+                Policy as Code: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Web API, Webhooks, Automation, Provisioning, and
+                Policy as Code: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Web API, Webhooks, Automation, Provisioning, and
+                Policy as Code: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Web API, Webhooks, Automation, Provisioning, and
+                Policy as Code: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Web API, Webhooks, Automation,
+                Provisioning, and Policy as Code</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>24</span>Monorepos, Multi-Module Builds, Generated Code, and
+              Complex Repository Layouts
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Monorepos, Multi-Module Builds, Generated Code,
+                and Complex Repository Layouts: Core Concepts and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Monorepos, Multi-Module Builds, Generated Code,
+                and Complex Repository Layouts: Guided Hands-On Workflow</a
+              ><a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Monorepos, Multi-Module Builds, Generated Code,
+                and Complex Repository Layouts: Configuration, Design Patterns,
+                and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Monorepos, Multi-Module Builds, Generated Code,
+                and Complex Repository Layouts: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Monorepos, Multi-Module Builds,
+                Generated Code, and Complex Repository Layouts</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Portfolios, Applications, Enterprise Reporting, and
+              Governance Boundaries
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Portfolios, Applications, Enterprise Reporting,
+                and Governance Boundaries: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Portfolios, Applications, Enterprise Reporting,
+                and Governance Boundaries: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Portfolios, Applications, Enterprise Reporting,
+                and Governance Boundaries: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Portfolios, Applications, Enterprise Reporting,
+                and Governance Boundaries: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Portfolios, Applications,
+                Enterprise Reporting, and Governance Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Marketplace, Plugins, Extension Risks, and
+              Compatibility Management
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Marketplace, Plugins, Extension Risks, and
+                Compatibility Management: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Marketplace, Plugins, Extension Risks, and
+                Compatibility Management: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Marketplace, Plugins, Extension Risks, and
+                Compatibility Management: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Marketplace, Plugins, Extension Risks, and
+                Compatibility Management: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Marketplace, Plugins, Extension
+                Risks, and Compatibility Management</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Server Logs, Monitoring, Health, Elasticsearch, and
+              Operational Diagnostics
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Server Logs, Monitoring, Health, Elasticsearch,
+                and Operational Diagnostics: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Server Logs, Monitoring, Health, Elasticsearch,
+                and Operational Diagnostics: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Server Logs, Monitoring, Health, Elasticsearch,
+                and Operational Diagnostics: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Server Logs, Monitoring, Health, Elasticsearch,
+                and Operational Diagnostics: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Server Logs, Monitoring,
+                Health, Elasticsearch, and Operational Diagnostics</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Database Backup, Restore, Disaster Recovery, and
+              Data Protection
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Database Backup, Restore, Disaster Recovery, and
+                Data Protection: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Database Backup, Restore, Disaster Recovery, and
+                Data Protection: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Database Backup, Restore, Disaster Recovery, and
+                Data Protection: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Database Backup, Restore, Disaster Recovery, and
+                Data Protection: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Database Backup, Restore,
+                Disaster Recovery, and Data Protection</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Release Cycle, LTA Strategy, Upgrade Paths, and
+              Migration Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Release Cycle, LTA Strategy, Upgrade Paths, and
+                Migration Planning: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Release Cycle, LTA Strategy, Upgrade Paths, and
+                Migration Planning: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Release Cycle, LTA Strategy, Upgrade Paths, and
+                Migration Planning: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Release Cycle, LTA Strategy, Upgrade Paths, and
+                Migration Planning: Diagnostics, Failure Modes, and Production
+                Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Release Cycle, LTA Strategy,
+                Upgrade Paths, and Migration Planning</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>Data Center Edition, Clustering, High Availability,
+              and Scale
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Data Center Edition, Clustering, High
+                Availability, and Scale: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Data Center Edition, Clustering, High
+                Availability, and Scale: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Data Center Edition, Clustering, High
+                Availability, and Scale: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Data Center Edition, Clustering, High
+                Availability, and Scale: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Data Center Edition,
+                Clustering, High Availability, and Scale</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Performance Sizing, Reference Architectures, and
+              Large-Instance Tuning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Performance Sizing, Reference Architectures, and
+                Large-Instance Tuning: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Performance Sizing, Reference Architectures, and
+                Large-Instance Tuning: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Performance Sizing, Reference Architectures, and
+                Large-Instance Tuning: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Performance Sizing, Reference Architectures, and
+                Large-Instance Tuning: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Performance Sizing, Reference
+                Architectures, and Large-Instance Tuning</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>32</span>Troubleshooting Analysis Failures, Index Problems,
+              CI Drift, and Incidents
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson1.html"
+                ><span>01</span>Troubleshooting Analysis Failures, Index
+                Problems, CI Drift, and Incidents: Core Concepts and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson2.html"
+                ><span>02</span>Troubleshooting Analysis Failures, Index
+                Problems, CI Drift, and Incidents: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson3.html"
+                ><span>03</span>Troubleshooting Analysis Failures, Index
+                Problems, CI Drift, and Incidents: Configuration, Design
+                Patterns, and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson4.html"
+                ><span>04</span>Troubleshooting Analysis Failures, Index
+                Problems, CI Drift, and Incidents: Diagnostics, Failure Modes,
+                and Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Troubleshooting Analysis
+                Failures, Index Problems, CI Drift, and Incidents</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>33</span>Enterprise Standards, Auditability, Developer
+              Adoption, and Quality Programs
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson1.html"
+                ><span>01</span>Enterprise Standards, Auditability, Developer
+                Adoption, and Quality Programs: Core Concepts and Mental
+                Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson2.html"
+                ><span>02</span>Enterprise Standards, Auditability, Developer
+                Adoption, and Quality Programs: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson3.html"
+                ><span>03</span>Enterprise Standards, Auditability, Developer
+                Adoption, and Quality Programs: Configuration, Design Patterns,
+                and Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson4.html"
+                ><span>04</span>Enterprise Standards, Auditability, Developer
+                Adoption, and Quality Programs: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Enterprise Standards,
+                Auditability, Developer Adoption, and Quality Programs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>34</span>Capstone: Operate a Governed Production SonarQube
+              Quality Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson1.html"
+                ><span>01</span>Capstone: Operate a Governed Production
+                SonarQube Quality Platform: Core Concepts and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson2.html"
+                ><span>02</span>Capstone: Operate a Governed Production
+                SonarQube Quality Platform: Guided Hands-On Workflow</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson3.html"
+                ><span>03</span>Capstone: Operate a Governed Production
+                SonarQube Quality Platform: Configuration, Design Patterns, and
+                Trade-Offs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson4.html"
+                ><span>04</span>Capstone: Operate a Governed Production
+                SonarQube Quality Platform: Diagnostics, Failure Modes, and
+                Production Practices</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Capstone: Operate a Governed
+                Production SonarQube Quality Platform</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">SonarQube</a><span>/</span
+          ><span>Chapter 24</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 24</span><i></i><span>Lesson 03</span><i></i
+            ><span>~145 minutes</span>
+          </div>
+          <h1>
+            Monorepos, Multi-Module Builds, Generated Code, and Complex
+            Repository Layouts: Configuration, Design Patterns, and Trade-Offs
+          </h1>
+          <p>
+            Choose one versus multiple SonarQube projects, build-native modules
+            versus explicit scanner base directories, generated-code policies,
+            concurrency controls, and edition-aware aggregation using observable
+            ownership contracts.
+          </p>
+          <div class="lesson-tags">
+            <span>Monorepos</span><span>Modules</span><span>Analysis scope</span
+            ><span>Report paths</span><span>Governance</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Choose one SonarQube project or multiple projects using ownership,
+              release lifecycle and policy—not repository aesthetics.
+            </li>
+            <li>
+              Prefer Maven/Gradle/.NET build-native scanners when the build
+              graph already contains the module truth.
+            </li>
+            <li>
+              Use explicit <code>projectBaseDir</code>, source/test scope and
+              report mapping when build-native structure is unavailable.
+            </li>
+            <li>
+              Choose a generated-code treatment that preserves the right
+              security, maintainability, coverage and duplication semantics.
+            </li>
+            <li>
+              Design serial/parallel CI analysis with unique workspaces and
+              deterministic ownership.
+            </li>
+            <li>
+              Separate Community Build project topology from Developer
+              applications and Enterprise monorepo/portfolio capabilities.
+            </li>
+          </ul>
+        </section>
+        <section id="one-vs-many">
+          <h2>1. One project versus multiple projects</h2>
+          <p>
+            The correct boundary is usually the smallest unit whose quality
+            policy and lifecycle can be governed coherently. A monorepo with ten
+            packages may still be one product; a repository with two
+            independently deployed services may need two SonarQube projects.
+          </p>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Signal</th>
+                  <th>Favor one project</th>
+                  <th>Favor multiple projects</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Release lifecycle</td>
+                  <td>Modules always ship together.</td>
+                  <td>Modules deploy/version independently.</td>
+                </tr>
+                <tr>
+                  <td>Ownership</td>
+                  <td>One team owns the whole codebase.</td>
+                  <td>
+                    Different teams need distinct permissions/accountability.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Quality Gate/New Code</td>
+                  <td>One gate and baseline are meaningful.</td>
+                  <td>Different policies/baselines are needed.</td>
+                </tr>
+                <tr>
+                  <td>Technology/build</td>
+                  <td>One build graph naturally covers everything.</td>
+                  <td>Independent build pipelines already exist.</td>
+                </tr>
+                <tr>
+                  <td>Failure isolation</td>
+                  <td>Whole-system releasability is the decision.</td>
+                  <td>
+                    One service should not overwrite another project’s analysis
+                    history.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="build-native">
+          <h2>2. Build-native modules versus manual scanner slicing</h2>
+          <p>
+            For Maven, Gradle and .NET, prefer the scanner integrated with the
+            build system when it understands the actual module graph, compiled
+            outputs and test layout. This avoids manually reconstructing a model
+            the build already knows.
+          </p>
+          <div class="callout warning">
+            <strong>Do not resurrect obsolete module tricks.</strong> Avoid
+            copying old tutorials that rely on legacy
+            <code>sonar.modules</code> style configuration. Use the current
+            build scanner’s module model or explicit independent project scans.
+          </div>
+          <p>
+            Manual <code>sonar.projectBaseDir</code> slicing is appropriate for
+            CLI-managed repositories, language ecosystems without a
+            build-integrated scanner, or genuinely independent project
+            boundaries. Record the base and every relative path as part of the
+            configuration contract.
+          </p>
+        </section>
+        <section id="base-dir-tradeoff">
+          <h2>3. Base directory versus changing the shell working directory</h2>
+          <p>
+            These two commands can target the same files but have different
+            operational evidence:
+          </p>
+          <pre><code class="language-bash"># A: explicit coordinate from repository root
+sonar-scanner -Dsonar.projectBaseDir=modules/api -Dsonar.sources=src
+
+# B: shell coordinate change
+(cd modules/api &amp;&amp; sonar-scanner -Dsonar.sources=src)</code></pre>
+          <p>
+            Option A makes the module base explicit in scanner parameters.
+            Option B can simplify tool/report paths because the test producer
+            and scanner share a working directory. Choose one convention and
+            standardize it; mixing both styles casually is a common source of
+            doubled prefixes.
+          </p>
+        </section>
+        <section id="generated-policy">
+          <h2>4. Generated-code treatment: choose the narrowest exclusion</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Need</th>
+                  <th>Technique</th>
+                  <th>State changed</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>File is not owned/analyzable first-party source</td>
+                  <td>
+                    Exclude from source analysis with justified
+                    <code>sonar.exclusions</code> or keep it outside
+                    <code>sonar.sources</code>.
+                  </td>
+                  <td>
+                    Issues, metrics, duplication and coverage population can all
+                    change.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Static analysis matters, coverage responsibility does not
+                  </td>
+                  <td><code>sonar.coverage.exclusions</code>.</td>
+                  <td>Coverage denominator only; file can remain analyzed.</td>
+                </tr>
+                <tr>
+                  <td>Duplicated generated templates should not distort CPD</td>
+                  <td><code>sonar.cpd.exclusions</code>.</td>
+                  <td>Duplication calculation, not general analysis.</td>
+                </tr>
+                <tr>
+                  <td>Generated annotation marks issue-only noise</td>
+                  <td>
+                    Advanced issue exclusion by file content/rule where
+                    justified.
+                  </td>
+                  <td>
+                    Issue reporting only; do not assume other metrics disappear.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Broad source exclusion is the most destructive option. Use it only
+            when the file truly sits outside the project’s code-quality
+            ownership contract.
+          </p>
+        </section>
+        <section id="reports">
+          <h2>5. Single versus merged reports</h2>
+          <p>
+            A one-project topology can import multiple language-specific
+            coverage reports when the parameter supports a list/wildcards, or an
+            intentionally aggregated report produced by the test tool. A
+            multi-project topology should normally give each project only the
+            report that corresponds to files in its indexed scope.
+          </p>
+          <ul>
+            <li>
+              Do not concatenate XML formats unless the producing tool documents
+              that operation.
+            </li>
+            <li>
+              Do not feed one module’s report to another project merely because
+              the filename exists.
+            </li>
+            <li>
+              Do not assume a report-relative source path means the same thing
+              after changing <code>projectBaseDir</code>.
+            </li>
+            <li>
+              Verify the report’s internal filenames before scanner invocation.
+            </li>
+          </ul>
+        </section>
+        <section id="parallel">
+          <h2>6. Serial versus parallel analyses</h2>
+          <p>
+            Parallelism is safe only when the state surfaces are isolated. For
+            distinct projects, use separate checkouts or module directories,
+            unique <code>sonar.working.directory</code> values, unique report
+            destinations, project-scoped tokens and distinct artifact names.
+            Preserve each <code>report-task.txt</code> separately.
+          </p>
+          <p>
+            For the same SonarQube project/branch, serialization is the safer
+            default. Even if the scanner processes can run concurrently, two
+            reports for the same project identity can race semantically: the
+            build that finishes last may not correspond to the revision you
+            intended to treat as authoritative. CI concurrency controls should
+            cancel/stale-suppress superseded runs or serialize by
+            project/branch.
+          </p>
+        </section>
+        <section id="aggregation">
+          <h2>
+            7. Aggregation is a view over correct projects, not a substitute for
+            topology
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Capability</th>
+                  <th>Current boundary</th>
+                  <th>Use</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Explicit multiple Community Build projects</td>
+                  <td>Free/local mandatory path</td>
+                  <td>
+                    Independent project histories from one repository, modeled
+                    manually.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Application</td>
+                  <td>Developer Edition+</td>
+                  <td>
+                    Aggregate projects that share a release lifecycle into a
+                    synthetic releasability view.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Native monorepo onboarding/binding</td>
+                  <td>Enterprise Edition</td>
+                  <td>
+                    Bind multiple SonarQube projects to the same DevOps
+                    repository and distinguish monorepo project PR reporting.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Portfolio</td>
+                  <td>Enterprise Edition+</td>
+                  <td>
+                    Executive/high-level governance across
+                    projects/applications.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Never create an application or portfolio first and hope it will
+            expose incorrect project scopes. Validate each component project
+            independently before aggregating it.
+          </p>
+        </section>
+        <section id="decision">
+          <h2>8. Worked scenarios</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Recommended topology</th>
+                  <th>Evidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    Single Java product with Maven reactor modules, one release
+                  </td>
+                  <td>
+                    One project using SonarScanner for Maven/build-native module
+                    knowledge.
+                  </td>
+                  <td>
+                    Reactor/build graph, module scanner log, unified
+                    release/gate.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Python monorepo with independently deployed API and worker
+                  </td>
+                  <td>
+                    Two project keys, module bases and tokens; optional
+                    commercial aggregation if lifecycle warrants.
+                  </td>
+                  <td>
+                    Ownership table, distinct task IDs, independent gates.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Generated API client committed to Git but never edited
+                  </td>
+                  <td>
+                    Decide whether full exclusion or narrower coverage/CPD
+                    exclusion matches ownership.
+                  </td>
+                  <td>
+                    Generator/version, regeneration proof, exclusion rationale.
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    Two CI jobs share repository root and
+                    <code>.scannerwork</code>
+                  </td>
+                  <td>Repair workspace isolation before adding concurrency.</td>
+                  <td>Unique work/report dirs and independent task files.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="ownership">
+          <h2>9. Topology manifest as policy as code</h2>
+          <pre><code class="language-yaml">revision: "&lt;git-sha&gt;"
+projects:
+  - key: sq-ch24-api
+    owner: team-api
+    base_dir: modules/api
+    sources: [src]
+    tests: [tests]
+    reports: [coverage.xml]
+    generated_policy: "exclude none inside module"
+    scanner_workdir: .scannerwork-ch24-api
+    concurrency_key: sq-ch24-api-main
+  - key: sq-ch24-worker
+    owner: team-worker
+    base_dir: modules/worker
+    sources: [src]
+    tests: [tests]
+    reports: [coverage.xml]
+    scanner_workdir: .scannerwork-ch24-worker
+aggregation:
+  community_fallback: "timestamped markdown/API summary"
+  optional_application: "Developer+ only if shared lifecycle"
+  optional_portfolio: "Enterprise+ governance view"
+</code></pre>
+          <p>
+            Treat this manifest as a reviewable contract. A CI implementation
+            can derive commands from it, but changes to ownership/scope should
+            require the same scrutiny as a Quality Gate or permission change.
+          </p>
+        </section>
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >When should build-native scanner integration be preferred over
+                manual base-directory slicing?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                When the build system already carries authoritative
+                module/compiled/test structure, because recreating it manually
+                is more fragile.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What is the narrowest choice when generated code should stay
+                analyzed but not reduce coverage?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Use coverage exclusions rather than removing the file from
+                source analysis entirely.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why serialize analyses for the same project/branch by
+                default?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                To avoid ambiguous ordering/stale-result races where concurrent
+                reports represent different revisions of the same project
+                identity.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Can an Enterprise Portfolio fix double-counted source between
+                two projects?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. Aggregation consumes project results; the underlying
+                ownership/scope must be corrected first.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What should be version-controlled for a multi-project
+                monorepo?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                At minimum project keys, bases, source/test roots, reports,
+                generated/vendor policy, working dirs, concurrency keys, owners
+                and edition-aware aggregation assumptions.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section class="next-concepts">
+          <span>Next lesson</span>
+          <h3>Diagnose layout failures without hiding source</h3>
+          <p>
+            Lesson 4 engineers overlap, missing-report, shared-key, exclusion,
+            concurrency and ownership-inference failures.
+          </p>
+        </section>
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <ul>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/analysis-parameters/parameters-not-settable-in-ui"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — analysis parameters not settable in UI</a
+              >
+              — <code>sonar.projectBaseDir</code>, <code>sonar.sources</code>,
+              <code>sonar.tests</code>, <code>sonar.working.directory</code>,
+              report-task path and token guidance.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/project-administration/setting-analysis-scope/setting-initial-scope"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — setting initial scope</a
+              >
+              — source/test roots are simple paths relative to project base
+              directory; no wildcards in initial roots.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/project-administration/setting-analysis-scope/introduction"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — analysis-scope introduction</a
+              >
+              — generated/library code, coverage/duplication exclusions and
+              verification workflow.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/test-coverage/test-coverage-parameters"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — test coverage parameters</a
+              >
+              — externally generated reports and project-root-relative path
+              rules.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/scanners/sonarscanner"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — SonarScanner CLI</a
+              >
+              — alternate project base directory behavior and CLI configuration.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-community-build/analyzing-source-code/test-coverage/java-test-coverage"
+                rel="noreferrer"
+                target="_blank"
+                >Community Build — Java/multi-module coverage</a
+              >
+              — build-native JaCoCo generation and multi-module aggregation
+              patterns.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-server/project-administration/monorepos"
+                rel="noreferrer"
+                target="_blank"
+                >SonarQube Server — managing monorepo projects</a
+              >
+              — Enterprise monorepo feature, multiple SonarQube projects bound
+              to one repository, unique project keys and manual project
+              definition.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-server/user-guide/applications"
+                rel="noreferrer"
+                target="_blank"
+                >SonarQube Server — Applications</a
+              >
+              — synthetic aggregation for projects sharing a lifecycle;
+              commercial feature.
+            </li>
+            <li>
+              <a
+                href="https://docs.sonarsource.com/sonarqube-server/project-administration/managing-portfolios"
+                rel="noreferrer"
+                target="_blank"
+                >SonarQube Server — Portfolios</a
+              >
+              — Enterprise governance aggregation.
+            </li>
+            <li>
+              <a
+                href="https://github.com/SonarSource/sonar-scanner-cli/releases"
+                rel="noreferrer"
+                target="_blank"
+                >SonarScanner CLI releases</a
+              >
+              — current public scanner release baseline.
+            </li>
+            <li>
+              <a
+                href="https://www.sonarsource.com/products/sonarqube/downloads/"
+                rel="noreferrer"
+                target="_blank"
+                >SonarQube downloads</a
+              >
+              — current Community Build/Server/LTA release identities.
+            </li>
+          </ul>
+          <div class="callout info version-note-card">
+            <strong>Version and compatibility note</strong>
+            <p class="muted">
+              Rechecked 2026-09-08. Mandatory examples target
+              <strong>Community Build 26.9.0.129388</strong> and
+              <strong>SonarScanner CLI 8.1.0.6389</strong>. For CLI-managed
+              projects, <code>sonar.projectBaseDir</code> changes the analysis
+              directory; <code>sonar.sources</code>/<code>sonar.tests</code> are
+              simple paths relative to that base unless absolute. Most
+              coverage/external report paths are project-root/base-relative
+              unless their parameter docs state otherwise.
+              <code>sonar.working.directory</code> must be unique for each
+              project and is deleted before each analysis, so parallel jobs must
+              isolate scanner/report artifacts. Current native monorepo
+              onboarding/binding is an
+              <strong>Enterprise Edition</strong> feature and still requires
+              explicit projects; SonarQube does not infer monorepo projects
+              automatically. Applications are a commercial aggregation starting
+              in Developer Edition; Portfolios start in Enterprise Edition.
+              Community Build can still model multiple independent projects from
+              one repository manually with distinct project keys/base
+              directories and an external governance-summary fallback. Recheck
+              the exact scanner/build integration and report parameter semantics
+              before production use.
+            </p>
+          </div>
+        </section>
+        <div class="callout">
+          <strong>Complex-layout evidence rule.</strong> Preserve repository
+          root, exact revision, project key/owner, <code>projectBaseDir</code>,
+          source/test roots, inclusions/exclusions, generated/vendor policy,
+          report producer/path/internal filenames, unique scanner working
+          directory, token owner/type (never value), scanner log,
+          <code>report-task.txt</code>, <code>ceTaskId</code>, Compute Engine
+          state, measures/gate, CI concurrency identity and aggregation
+          edition/definition separately.
+        </div>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="Lesson2.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson4.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              ><a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              ><a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              ><a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              ><a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            ><button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span></button
+            ><small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+    <script data-sonarqube-toc-unnumbered="">
+      (() => {
+        const toc = document.querySelector("[data-on-page-toc]");
+        if (!toc) return;
+        const stripSectionNumber = (label) =>
+          label.replace(
+            /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+            "",
+          );
+        const normalizeTocLabels = () => {
+          toc.querySelectorAll("a").forEach((link) => {
+            const cleaned = stripSectionNumber(link.textContent);
+            if (cleaned !== link.textContent) link.textContent = cleaned;
+          });
+        };
+        normalizeTocLabels();
+        const observer = new MutationObserver(normalizeTocLabels);
+        observer.observe(toc, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      })();
+    </script>
+  </body>
+</html>
