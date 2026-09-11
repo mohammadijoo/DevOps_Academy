@@ -1,0 +1,10 @@
+(() => {
+  "use strict";
+  const esc=(v)=>v.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const sp=(c,t)=>`<span class="${c}">${esc(t)}</span>`;
+  function common(line,keywords){let out="",i=0;while(i<line.length){const ch=line[i];if(ch==="#"){out+=sp("hljs-comment",line.slice(i));break;}if(ch==='"'||ch==="'"){const q=ch;let j=i+1,e=false;while(j<line.length){const x=line[j];if(!e&&x===q){j++;break;}if(!e&&x==="\\")e=true;else e=false;j++;}out+=sp("hljs-string",line.slice(i,j));i=j;continue;}const m=line.slice(i).match(/^[A-Za-z_][A-Za-z0-9_.-]*|^-?\d+(?:\.\d+)?|^\s+|^./);const t=m?m[0]:ch;if(/^-?\d/.test(t))out+=sp("hljs-number",t);else if(keywords.has(t))out+=sp("hljs-keyword",t);else if(/^[A-Za-z_][A-Za-z0-9_.-]*$/.test(t)&&line.slice(i+t.length).trimStart().startsWith("="))out+=sp("hljs-attr",t);else out+=esc(t);i+=t.length;}return out;}
+  function paint(code,mode){const src=code.textContent;let out;if(mode==="dockerfile"){const keys=new Set(["FROM","RUN","CMD","LABEL","MAINTAINER","EXPOSE","ENV","ADD","COPY","ENTRYPOINT","VOLUME","USER","WORKDIR","ARG","ONBUILD","STOPSIGNAL","HEALTHCHECK","SHELL"]);out=src.split("\n").map((line)=>{if(/^\s*#/.test(line))return sp("hljs-comment",line);const m=line.match(/^(\s*)([A-Za-z]+)(\b.*)$/);return m&&keys.has(m[2].toUpperCase())?esc(m[1])+sp("hljs-keyword",m[2])+esc(m[3]):esc(line);}).join("\n");}else{const keys=mode==="hcl"?new Set(["terraform","required_version","required_providers","provider","resource","data","variable","output","module","locals","backend","source","version","true","false","null"]):new Set(["true","false"]);out=src.split("\n").map((line)=>common(line,keys)).join("\n");}code.innerHTML=out;code.dataset.highlighted="yes";code.classList.add("hljs");}
+  document.querySelectorAll("pre code.language-hcl").forEach((c)=>paint(c,"hcl"));
+  document.querySelectorAll("pre code.language-toml").forEach((c)=>paint(c,"toml"));
+  document.querySelectorAll("pre code.language-dockerfile").forEach((c)=>paint(c,"dockerfile"));
+})();
