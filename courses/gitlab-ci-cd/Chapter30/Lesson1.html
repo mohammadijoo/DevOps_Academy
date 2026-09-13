@@ -1,0 +1,3257 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Treat runner fleets as capacity systems: connect queue demand, runner eligibility, manager concurrency, executor lifecycle, worker reuse, metrics, isolation, cost bounds, and upgrade/migration evidence."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Runner Fleets, Autoscaling, Docker Machine Migration, Kubernetes Runners,
+      Ephemeral Workers, and Capacity Planning: Concepts, Architecture, and
+      Mental Model | GitLab CI/CD Complete Course | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+        svg: { fontCache: "global" },
+      };
+    </script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="gitlab-ci-cd-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+
+      .lesson-article .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin: 22px 0;
+      }
+      .lesson-article .evidence-card {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .lesson-article .evidence-card strong {
+        display: block;
+        color: var(--text);
+        margin-bottom: 7px;
+      }
+      .lesson-article .evidence-card p {
+        margin: 0;
+        font-size: 13px;
+      }
+
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+    <style data-gitlab-ci-cd-overflow-guard="">
+      body.lesson-page .lesson-shell,
+      body.lesson-page .lesson-article,
+      body.lesson-page .on-page-toc {
+        min-width: 0;
+      }
+      body.lesson-page .lesson-article h1,
+      body.lesson-page .lesson-article h2,
+      body.lesson-page .lesson-article h3,
+      body.lesson-page .lesson-article p,
+      body.lesson-page .lesson-article li,
+      body.lesson-page .lesson-article dt,
+      body.lesson-page .lesson-article dd,
+      body.lesson-page .lesson-article blockquote {
+        overflow-wrap: anywhere;
+      }
+      body.lesson-page .lesson-article p code,
+      body.lesson-page .lesson-article li code {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      body.lesson-page .lesson-article .mermaid {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      body.lesson-page .lesson-article .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+      <link href="../gitlab-ci-cd-consistency.css" rel="stylesheet" />
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+        >
+          <span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span>
+          <span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          >
+        </a>
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a>
+          <a class="is-active" href="../../../index.html#courses">Courses</a>
+          <a href="../../../index.html#method">Method</a>
+          <a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path>
+            </svg>
+          </a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">GLCI</span>
+            <div>
+              <small>Course 14</small
+              ><strong>GitLab CI/CD Complete Course</strong>
+            </div></a
+          >
+          <button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path>
+          </svg>
+          <input
+            data-sidebar-search=""
+            placeholder="Search 190 lessons..."
+            type="search"
+        /></label>
+        <nav
+          aria-label="GitLab CI/CD course curriculum"
+          class="sidebar-curriculum"
+        >
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Continuous Integration and Delivery Foundations,
+              GitLab Pipeline Architecture, and Delivery Flow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Continuous Integration and Delivery Foundations,
+                GitLab Pipeline Architecture, and Delivery Flow: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Continuous Integration and Delivery Foundations,
+                GitLab Pipeline Architecture, and Delivery Flow: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Continuous Integration and Delivery Foundations,
+                GitLab Pipeline Architecture, and Delivery Flow: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Continuous Integration and Delivery Foundations,
+                GitLab Pipeline Architecture, and Delivery Flow: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Continuous Integration and
+                Delivery Foundations, GitLab Pipeline Architecture, and Delivery
+                Flow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>.gitlab-ci.yml Structure, Pipeline Compilation,
+              Keywords, Defaults, and Configuration Validation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>.gitlab-ci.yml Structure, Pipeline Compilation,
+                Keywords, Defaults, and Configuration Validation: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>.gitlab-ci.yml Structure, Pipeline Compilation,
+                Keywords, Defaults, and Configuration Validation: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>.gitlab-ci.yml Structure, Pipeline Compilation,
+                Keywords, Defaults, and Configuration Validation: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>.gitlab-ci.yml Structure, Pipeline Compilation,
+                Keywords, Defaults, and Configuration Validation: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — .gitlab-ci.yml Structure,
+                Pipeline Compilation, Keywords, Defaults, and Configuration
+                Validation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Jobs, Stages, Scripts, Images, Services,
+              before_script, after_script, and Exit Behavior
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Jobs, Stages, Scripts, Images, Services,
+                before_script, after_script, and Exit Behavior: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Jobs, Stages, Scripts, Images, Services,
+                before_script, after_script, and Exit Behavior: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Jobs, Stages, Scripts, Images, Services,
+                before_script, after_script, and Exit Behavior: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Jobs, Stages, Scripts, Images, Services,
+                before_script, after_script, and Exit Behavior: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Jobs, Stages, Scripts, Images,
+                Services, before_script, after_script, and Exit Behavior</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>GitLab Runner Architecture, Registration, Runner
+              Managers, Job Execution, and Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>GitLab Runner Architecture, Registration, Runner
+                Managers, Job Execution, and Lifecycle: Concepts, Architecture,
+                and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>GitLab Runner Architecture, Registration, Runner
+                Managers, Job Execution, and Lifecycle: Guided Hands-On Workflow
+                and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>GitLab Runner Architecture, Registration, Runner
+                Managers, Job Execution, and Lifecycle: Configuration, Design
+                Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>GitLab Runner Architecture, Registration, Runner
+                Managers, Job Execution, and Lifecycle: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — GitLab Runner Architecture,
+                Registration, Runner Managers, Job Execution, and Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Runner Executors: Shell, Docker, Docker Autoscaler,
+              Kubernetes, SSH, and Custom Execution Models
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Runner Executors: Shell, Docker, Docker
+                Autoscaler, Kubernetes, SSH, and Custom Execution Models:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Runner Executors: Shell, Docker, Docker
+                Autoscaler, Kubernetes, SSH, and Custom Execution Models: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Runner Executors: Shell, Docker, Docker
+                Autoscaler, Kubernetes, SSH, and Custom Execution Models:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Runner Executors: Shell, Docker, Docker
+                Autoscaler, Kubernetes, SSH, and Custom Execution Models:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Runner Executors: Shell,
+                Docker, Docker Autoscaler, Kubernetes, SSH, and Custom Execution
+                Models</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>CI/CD Variables, Predefined Variables, File
+              Variables, Masking, Protection, Expansion, and Precedence
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>CI/CD Variables, Predefined Variables, File
+                Variables, Masking, Protection, Expansion, and Precedence:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>CI/CD Variables, Predefined Variables, File
+                Variables, Masking, Protection, Expansion, and Precedence:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>CI/CD Variables, Predefined Variables, File
+                Variables, Masking, Protection, Expansion, and Precedence:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>CI/CD Variables, Predefined Variables, File
+                Variables, Masking, Protection, Expansion, and Precedence:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Variables, Predefined
+                Variables, File Variables, Masking, Protection, Expansion, and
+                Precedence</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Secrets Management, External Secret Providers,
+              Protected Data, Rotation, and Least-Privilege Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Secrets Management, External Secret Providers,
+                Protected Data, Rotation, and Least-Privilege Patterns:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Secrets Management, External Secret Providers,
+                Protected Data, Rotation, and Least-Privilege Patterns: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Secrets Management, External Secret Providers,
+                Protected Data, Rotation, and Least-Privilege Patterns:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Secrets Management, External Secret Providers,
+                Protected Data, Rotation, and Least-Privilege Patterns:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Secrets Management, External
+                Secret Providers, Protected Data, Rotation, and Least-Privilege
+                Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>workflow:rules, Job rules, if Expressions, changes,
+              exists, Pipeline Sources, and Conditional Execution
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>workflow:rules, Job rules, if Expressions,
+                changes, exists, Pipeline Sources, and Conditional Execution:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>workflow:rules, Job rules, if Expressions,
+                changes, exists, Pipeline Sources, and Conditional Execution:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>workflow:rules, Job rules, if Expressions,
+                changes, exists, Pipeline Sources, and Conditional Execution:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>workflow:rules, Job rules, if Expressions,
+                changes, exists, Pipeline Sources, and Conditional Execution:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — workflow:rules, Job rules, if
+                Expressions, changes, exists, Pipeline Sources, and Conditional
+                Execution</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Stages, needs DAGs, Dependency Graphs, Early
+              Execution, and Pipeline Critical-Path Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Stages, needs DAGs, Dependency Graphs, Early
+                Execution, and Pipeline Critical-Path Design: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Stages, needs DAGs, Dependency Graphs, Early
+                Execution, and Pipeline Critical-Path Design: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Stages, needs DAGs, Dependency Graphs, Early
+                Execution, and Pipeline Critical-Path Design: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Stages, needs DAGs, Dependency Graphs, Early
+                Execution, and Pipeline Critical-Path Design: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Stages, needs DAGs, Dependency
+                Graphs, Early Execution, and Pipeline Critical-Path Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Artifacts, Reports, Retention, Dependencies,
+              needs:artifacts, and Cross-Job Data Flow
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Artifacts, Reports, Retention, Dependencies,
+                needs:artifacts, and Cross-Job Data Flow: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Artifacts, Reports, Retention, Dependencies,
+                needs:artifacts, and Cross-Job Data Flow: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Artifacts, Reports, Retention, Dependencies,
+                needs:artifacts, and Cross-Job Data Flow: Configuration, Design
+                Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Artifacts, Reports, Retention, Dependencies,
+                needs:artifacts, and Cross-Job Data Flow: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifacts, Reports, Retention,
+                Dependencies, needs:artifacts, and Cross-Job Data Flow</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Caches, Cache Keys, Fallback Keys, Distributed
+              Cache, Dependency Reuse, and Cache Correctness
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Caches, Cache Keys, Fallback Keys, Distributed
+                Cache, Dependency Reuse, and Cache Correctness: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Caches, Cache Keys, Fallback Keys, Distributed
+                Cache, Dependency Reuse, and Cache Correctness: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Caches, Cache Keys, Fallback Keys, Distributed
+                Cache, Dependency Reuse, and Cache Correctness: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Caches, Cache Keys, Fallback Keys, Distributed
+                Cache, Dependency Reuse, and Cache Correctness: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Caches, Cache Keys, Fallback
+                Keys, Distributed Cache, Dependency Reuse, and Cache
+                Correctness</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>YAML Reuse with include, extends, Anchors,
+              !reference, Hidden Jobs, and Template Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>YAML Reuse with include, extends, Anchors,
+                !reference, Hidden Jobs, and Template Architecture: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>YAML Reuse with include, extends, Anchors,
+                !reference, Hidden Jobs, and Template Architecture: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>YAML Reuse with include, extends, Anchors,
+                !reference, Hidden Jobs, and Template Architecture:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>YAML Reuse with include, extends, Anchors,
+                !reference, Hidden Jobs, and Template Architecture: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — YAML Reuse with include,
+                extends, Anchors, !reference, Hidden Jobs, and Template
+                Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>CI/CD Components, Component Catalog, inputs,
+              Versioned Reuse, and Organization-Wide Pipeline Building Blocks
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>CI/CD Components, Component Catalog, inputs,
+                Versioned Reuse, and Organization-Wide Pipeline Building Blocks:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>CI/CD Components, Component Catalog, inputs,
+                Versioned Reuse, and Organization-Wide Pipeline Building Blocks:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>CI/CD Components, Component Catalog, inputs,
+                Versioned Reuse, and Organization-Wide Pipeline Building Blocks:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>CI/CD Components, Component Catalog, inputs,
+                Versioned Reuse, and Organization-Wide Pipeline Building Blocks:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Components, Component
+                Catalog, inputs, Versioned Reuse, and Organization-Wide Pipeline
+                Building Blocks</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Parent-Child Pipelines, Dynamic Child Pipelines,
+              Generated Configuration, and Monorepo Decomposition
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Parent-Child Pipelines, Dynamic Child Pipelines,
+                Generated Configuration, and Monorepo Decomposition: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Parent-Child Pipelines, Dynamic Child Pipelines,
+                Generated Configuration, and Monorepo Decomposition: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Parent-Child Pipelines, Dynamic Child Pipelines,
+                Generated Configuration, and Monorepo Decomposition:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Parent-Child Pipelines, Dynamic Child Pipelines,
+                Generated Configuration, and Monorepo Decomposition:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Parent-Child Pipelines, Dynamic
+                Child Pipelines, Generated Configuration, and Monorepo
+                Decomposition</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Multi-Project Pipelines, Downstream Triggers,
+              Cross-Project Dependencies, and Platform-Oriented Delivery
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Multi-Project Pipelines, Downstream Triggers,
+                Cross-Project Dependencies, and Platform-Oriented Delivery:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Multi-Project Pipelines, Downstream Triggers,
+                Cross-Project Dependencies, and Platform-Oriented Delivery:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Multi-Project Pipelines, Downstream Triggers,
+                Cross-Project Dependencies, and Platform-Oriented Delivery:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Multi-Project Pipelines, Downstream Triggers,
+                Cross-Project Dependencies, and Platform-Oriented Delivery:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Multi-Project Pipelines,
+                Downstream Triggers, Cross-Project Dependencies, and
+                Platform-Oriented Delivery</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Merge Request Pipelines, Merged Results Pipelines,
+              Merge Trains, and Pre-Merge Validation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Merge Request Pipelines, Merged Results
+                Pipelines, Merge Trains, and Pre-Merge Validation: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Merge Request Pipelines, Merged Results
+                Pipelines, Merge Trains, and Pre-Merge Validation: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Merge Request Pipelines, Merged Results
+                Pipelines, Merge Trains, and Pre-Merge Validation:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Merge Request Pipelines, Merged Results
+                Pipelines, Merge Trains, and Pre-Merge Validation: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Merge Request Pipelines, Merged
+                Results Pipelines, Merge Trains, and Pre-Merge Validation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Parallel Jobs, parallel:matrix, Test Sharding,
+              Fan-Out/Fan-In, and High-Throughput Pipeline Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Parallel Jobs, parallel:matrix, Test Sharding,
+                Fan-Out/Fan-In, and High-Throughput Pipeline Design: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Parallel Jobs, parallel:matrix, Test Sharding,
+                Fan-Out/Fan-In, and High-Throughput Pipeline Design: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Parallel Jobs, parallel:matrix, Test Sharding,
+                Fan-Out/Fan-In, and High-Throughput Pipeline Design:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Parallel Jobs, parallel:matrix, Test Sharding,
+                Fan-Out/Fan-In, and High-Throughput Pipeline Design:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Parallel Jobs, parallel:matrix,
+                Test Sharding, Fan-Out/Fan-In, and High-Throughput Pipeline
+                Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Concurrency, resource_group, interruptible Jobs,
+              Retry Policies, Timeouts, and Duplicate-Pipeline Control
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Concurrency, resource_group, interruptible Jobs,
+                Retry Policies, Timeouts, and Duplicate-Pipeline Control:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Concurrency, resource_group, interruptible Jobs,
+                Retry Policies, Timeouts, and Duplicate-Pipeline Control: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Concurrency, resource_group, interruptible Jobs,
+                Retry Policies, Timeouts, and Duplicate-Pipeline Control:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Concurrency, resource_group, interruptible Jobs,
+                Retry Policies, Timeouts, and Duplicate-Pipeline Control:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Concurrency, resource_group,
+                interruptible Jobs, Retry Policies, Timeouts, and
+                Duplicate-Pipeline Control</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Environments, Deployments, Environment Tiers, URLs,
+              Deployment History, and Operational Traceability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Environments, Deployments, Environment Tiers,
+                URLs, Deployment History, and Operational Traceability:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Environments, Deployments, Environment Tiers,
+                URLs, Deployment History, and Operational Traceability: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Environments, Deployments, Environment Tiers,
+                URLs, Deployment History, and Operational Traceability:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Environments, Deployments, Environment Tiers,
+                URLs, Deployment History, and Operational Traceability:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Environments, Deployments,
+                Environment Tiers, URLs, Deployment History, and Operational
+                Traceability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Review Apps, Dynamic Environments, Ephemeral Test
+              Stacks, Route Maps, and Environment Cleanup
+            </summary>
+            <div>
+              <a
+                aria-current="page"
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Review Apps, Dynamic Environments, Ephemeral
+                Test Stacks, Route Maps, and Environment Cleanup: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Review Apps, Dynamic Environments, Ephemeral
+                Test Stacks, Route Maps, and Environment Cleanup: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Review Apps, Dynamic Environments, Ephemeral
+                Test Stacks, Route Maps, and Environment Cleanup: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Review Apps, Dynamic Environments, Ephemeral
+                Test Stacks, Route Maps, and Environment Cleanup: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Review Apps, Dynamic
+                Environments, Ephemeral Test Stacks, Route Maps, and Environment
+                Cleanup</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Protected Environments, Deployment Approvals,
+              Freeze Windows, Manual Gates, and Separation of Duties
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Protected Environments, Deployment Approvals,
+                Freeze Windows, Manual Gates, and Separation of Duties:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Protected Environments, Deployment Approvals,
+                Freeze Windows, Manual Gates, and Separation of Duties: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Protected Environments, Deployment Approvals,
+                Freeze Windows, Manual Gates, and Separation of Duties:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Protected Environments, Deployment Approvals,
+                Freeze Windows, Manual Gates, and Separation of Duties:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Protected Environments,
+                Deployment Approvals, Freeze Windows, Manual Gates, and
+                Separation of Duties</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Tags, Releases, Release CLI, Changelogs, Evidence,
+              Asset Links, and Release-Orchestration Pipelines
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Tags, Releases, Release CLI, Changelogs,
+                Evidence, Asset Links, and Release-Orchestration Pipelines:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Tags, Releases, Release CLI, Changelogs,
+                Evidence, Asset Links, and Release-Orchestration Pipelines:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Tags, Releases, Release CLI, Changelogs,
+                Evidence, Asset Links, and Release-Orchestration Pipelines:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Tags, Releases, Release CLI, Changelogs,
+                Evidence, Asset Links, and Release-Orchestration Pipelines:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Tags, Releases, Release CLI,
+                Changelogs, Evidence, Asset Links, and Release-Orchestration
+                Pipelines</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Container Registry, Package Registry, Generic
+              Packages, Dependency Proxy, and Artifact Promotion
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Container Registry, Package Registry, Generic
+                Packages, Dependency Proxy, and Artifact Promotion: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Container Registry, Package Registry, Generic
+                Packages, Dependency Proxy, and Artifact Promotion: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Container Registry, Package Registry, Generic
+                Packages, Dependency Proxy, and Artifact Promotion:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Container Registry, Package Registry, Generic
+                Packages, Dependency Proxy, and Artifact Promotion: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Container Registry, Package
+                Registry, Generic Packages, Dependency Proxy, and Artifact
+                Promotion</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Test Reports, Coverage, JUnit, Code Quality,
+              Browser Performance, Accessibility, and Pipeline Feedback
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Test Reports, Coverage, JUnit, Code Quality,
+                Browser Performance, Accessibility, and Pipeline Feedback:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Test Reports, Coverage, JUnit, Code Quality,
+                Browser Performance, Accessibility, and Pipeline Feedback:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Test Reports, Coverage, JUnit, Code Quality,
+                Browser Performance, Accessibility, and Pipeline Feedback:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Test Reports, Coverage, JUnit, Code Quality,
+                Browser Performance, Accessibility, and Pipeline Feedback:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Test Reports, Coverage, JUnit,
+                Code Quality, Browser Performance, Accessibility, and Pipeline
+                Feedback</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>SAST, Dependency Scanning, Secret Detection,
+              Container Scanning, DAST, IaC Scanning, and Security Gates
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>SAST, Dependency Scanning, Secret Detection,
+                Container Scanning, DAST, IaC Scanning, and Security Gates:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>SAST, Dependency Scanning, Secret Detection,
+                Container Scanning, DAST, IaC Scanning, and Security Gates:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>SAST, Dependency Scanning, Secret Detection,
+                Container Scanning, DAST, IaC Scanning, and Security Gates:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>SAST, Dependency Scanning, Secret Detection,
+                Container Scanning, DAST, IaC Scanning, and Security Gates:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SAST, Dependency Scanning,
+                Secret Detection, Container Scanning, DAST, IaC Scanning, and
+                Security Gates</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>SBOM Generation, Dependency Lists, Vulnerability
+              Reports, Policy Evaluation, and Supply-Chain Evidence
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>SBOM Generation, Dependency Lists, Vulnerability
+                Reports, Policy Evaluation, and Supply-Chain Evidence: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>SBOM Generation, Dependency Lists, Vulnerability
+                Reports, Policy Evaluation, and Supply-Chain Evidence: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>SBOM Generation, Dependency Lists, Vulnerability
+                Reports, Policy Evaluation, and Supply-Chain Evidence:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>SBOM Generation, Dependency Lists, Vulnerability
+                Reports, Policy Evaluation, and Supply-Chain Evidence:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SBOM Generation, Dependency
+                Lists, Vulnerability Reports, Policy Evaluation, and
+                Supply-Chain Evidence</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>ID Tokens, OIDC Workload Identity, Cloud
+              Federation, Vault Authentication, and Secretless Deployments
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>ID Tokens, OIDC Workload Identity, Cloud
+                Federation, Vault Authentication, and Secretless Deployments:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>ID Tokens, OIDC Workload Identity, Cloud
+                Federation, Vault Authentication, and Secretless Deployments:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>ID Tokens, OIDC Workload Identity, Cloud
+                Federation, Vault Authentication, and Secretless Deployments:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>ID Tokens, OIDC Workload Identity, Cloud
+                Federation, Vault Authentication, and Secretless Deployments:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — ID Tokens, OIDC Workload
+                Identity, Cloud Federation, Vault Authentication, and Secretless
+                Deployments</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Kubernetes Agent, Cluster Access, GitOps-Oriented
+              Delivery, Kubernetes Deployments, and Environment Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Kubernetes Agent, Cluster Access,
+                GitOps-Oriented Delivery, Kubernetes Deployments, and
+                Environment Integration: Concepts, Architecture, and Mental
+                Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Kubernetes Agent, Cluster Access,
+                GitOps-Oriented Delivery, Kubernetes Deployments, and
+                Environment Integration: Guided Hands-On Workflow and Core
+                Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Kubernetes Agent, Cluster Access,
+                GitOps-Oriented Delivery, Kubernetes Deployments, and
+                Environment Integration: Configuration, Design Choices, and
+                Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Kubernetes Agent, Cluster Access,
+                GitOps-Oriented Delivery, Kubernetes Deployments, and
+                Environment Integration: Diagnostics, Failure Modes, Security,
+                and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Kubernetes Agent, Cluster
+                Access, GitOps-Oriented Delivery, Kubernetes Deployments, and
+                Environment Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Infrastructure-as-Code Pipelines,
+              Terraform/OpenTofu Workflows, Plan Reviews, State Safety, and
+              Drift Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Infrastructure-as-Code Pipelines,
+                Terraform/OpenTofu Workflows, Plan Reviews, State Safety, and
+                Drift Controls: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Infrastructure-as-Code Pipelines,
+                Terraform/OpenTofu Workflows, Plan Reviews, State Safety, and
+                Drift Controls: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Infrastructure-as-Code Pipelines,
+                Terraform/OpenTofu Workflows, Plan Reviews, State Safety, and
+                Drift Controls: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Infrastructure-as-Code Pipelines,
+                Terraform/OpenTofu Workflows, Plan Reviews, State Safety, and
+                Drift Controls: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Infrastructure-as-Code
+                Pipelines, Terraform/OpenTofu Workflows, Plan Reviews, State
+                Safety, and Drift Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>30</span>Runner Fleets, Autoscaling, Docker Machine
+              Migration, Kubernetes Runners, Ephemeral Workers, and Capacity
+              Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>Runner Fleets, Autoscaling, Docker Machine
+                Migration, Kubernetes Runners, Ephemeral Workers, and Capacity
+                Planning: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>Runner Fleets, Autoscaling, Docker Machine
+                Migration, Kubernetes Runners, Ephemeral Workers, and Capacity
+                Planning: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>Runner Fleets, Autoscaling, Docker Machine
+                Migration, Kubernetes Runners, Ephemeral Workers, and Capacity
+                Planning: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>Runner Fleets, Autoscaling, Docker Machine
+                Migration, Kubernetes Runners, Ephemeral Workers, and Capacity
+                Planning: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Runner Fleets, Autoscaling,
+                Docker Machine Migration, Kubernetes Runners, Ephemeral Workers,
+                and Capacity Planning</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Runner Security, Isolation Boundaries, Privileged
+              Containers, Fork Pipelines, Untrusted Code, and Threat Modeling
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Runner Security, Isolation Boundaries,
+                Privileged Containers, Fork Pipelines, Untrusted Code, and
+                Threat Modeling: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Runner Security, Isolation Boundaries,
+                Privileged Containers, Fork Pipelines, Untrusted Code, and
+                Threat Modeling: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Runner Security, Isolation Boundaries,
+                Privileged Containers, Fork Pipelines, Untrusted Code, and
+                Threat Modeling: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Runner Security, Isolation Boundaries,
+                Privileged Containers, Fork Pipelines, Untrusted Code, and
+                Threat Modeling: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Runner Security, Isolation
+                Boundaries, Privileged Containers, Fork Pipelines, Untrusted
+                Code, and Threat Modeling</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>32</span>Pipeline Supply-Chain Security, Dependency Pinning,
+              Image Digests, Signing, Provenance, and Trusted Builders
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson1.html"
+                ><span>01</span>Pipeline Supply-Chain Security, Dependency
+                Pinning, Image Digests, Signing, Provenance, and Trusted
+                Builders: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson2.html"
+                ><span>02</span>Pipeline Supply-Chain Security, Dependency
+                Pinning, Image Digests, Signing, Provenance, and Trusted
+                Builders: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson3.html"
+                ><span>03</span>Pipeline Supply-Chain Security, Dependency
+                Pinning, Image Digests, Signing, Provenance, and Trusted
+                Builders: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson4.html"
+                ><span>04</span>Pipeline Supply-Chain Security, Dependency
+                Pinning, Image Digests, Signing, Provenance, and Trusted
+                Builders: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Supply-Chain Security,
+                Dependency Pinning, Image Digests, Signing, Provenance, and
+                Trusted Builders</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>33</span>Pipeline Schedules, Trigger Tokens, Pipeline API,
+              Webhooks, ChatOps, and Event-Driven Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson1.html"
+                ><span>01</span>Pipeline Schedules, Trigger Tokens, Pipeline
+                API, Webhooks, ChatOps, and Event-Driven Automation: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson2.html"
+                ><span>02</span>Pipeline Schedules, Trigger Tokens, Pipeline
+                API, Webhooks, ChatOps, and Event-Driven Automation: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson3.html"
+                ><span>03</span>Pipeline Schedules, Trigger Tokens, Pipeline
+                API, Webhooks, ChatOps, and Event-Driven Automation:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson4.html"
+                ><span>04</span>Pipeline Schedules, Trigger Tokens, Pipeline
+                API, Webhooks, ChatOps, and Event-Driven Automation:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Schedules, Trigger
+                Tokens, Pipeline API, Webhooks, ChatOps, and Event-Driven
+                Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>34</span>CI/CD Analytics, Job Logs, Runner Metrics, Queue
+              Time, Failure Taxonomy, and Observability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson1.html"
+                ><span>01</span>CI/CD Analytics, Job Logs, Runner Metrics, Queue
+                Time, Failure Taxonomy, and Observability: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson2.html"
+                ><span>02</span>CI/CD Analytics, Job Logs, Runner Metrics, Queue
+                Time, Failure Taxonomy, and Observability: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson3.html"
+                ><span>03</span>CI/CD Analytics, Job Logs, Runner Metrics, Queue
+                Time, Failure Taxonomy, and Observability: Configuration, Design
+                Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson4.html"
+                ><span>04</span>CI/CD Analytics, Job Logs, Runner Metrics, Queue
+                Time, Failure Taxonomy, and Observability: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CI/CD Analytics, Job Logs,
+                Runner Metrics, Queue Time, Failure Taxonomy, and
+                Observability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>35</span>Pipeline Performance, Cost Control, Caching
+              Strategy, Queue Reduction, Selective Execution, and Optimization
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson1.html"
+                ><span>01</span>Pipeline Performance, Cost Control, Caching
+                Strategy, Queue Reduction, Selective Execution, and
+                Optimization: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson2.html"
+                ><span>02</span>Pipeline Performance, Cost Control, Caching
+                Strategy, Queue Reduction, Selective Execution, and
+                Optimization: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson3.html"
+                ><span>03</span>Pipeline Performance, Cost Control, Caching
+                Strategy, Queue Reduction, Selective Execution, and
+                Optimization: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson4.html"
+                ><span>04</span>Pipeline Performance, Cost Control, Caching
+                Strategy, Queue Reduction, Selective Execution, and
+                Optimization: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Performance, Cost
+                Control, Caching Strategy, Queue Reduction, Selective Execution,
+                and Optimization</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>36</span>Compliance Pipelines, Pipeline Execution Policies,
+              Governance, Audit Evidence, and Enterprise Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson1.html"
+                ><span>01</span>Compliance Pipelines, Pipeline Execution
+                Policies, Governance, Audit Evidence, and Enterprise Controls:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson2.html"
+                ><span>02</span>Compliance Pipelines, Pipeline Execution
+                Policies, Governance, Audit Evidence, and Enterprise Controls:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson3.html"
+                ><span>03</span>Compliance Pipelines, Pipeline Execution
+                Policies, Governance, Audit Evidence, and Enterprise Controls:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson4.html"
+                ><span>04</span>Compliance Pipelines, Pipeline Execution
+                Policies, Governance, Audit Evidence, and Enterprise Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Compliance Pipelines, Pipeline
+                Execution Policies, Governance, Audit Evidence, and Enterprise
+                Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>37</span>Pipeline Troubleshooting, YAML Debugging, Runner
+              Failures, Network Issues, Flaky Jobs, and Recovery Playbooks
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson1.html"
+                ><span>01</span>Pipeline Troubleshooting, YAML Debugging, Runner
+                Failures, Network Issues, Flaky Jobs, and Recovery Playbooks:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson2.html"
+                ><span>02</span>Pipeline Troubleshooting, YAML Debugging, Runner
+                Failures, Network Issues, Flaky Jobs, and Recovery Playbooks:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson3.html"
+                ><span>03</span>Pipeline Troubleshooting, YAML Debugging, Runner
+                Failures, Network Issues, Flaky Jobs, and Recovery Playbooks:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson4.html"
+                ><span>04</span>Pipeline Troubleshooting, YAML Debugging, Runner
+                Failures, Network Issues, Flaky Jobs, and Recovery Playbooks:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Troubleshooting, YAML
+                Debugging, Runner Failures, Network Issues, Flaky Jobs, and
+                Recovery Playbooks</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>38</span>Production Capstone: Build, Secure, Scale, Observe,
+              and Govern a Complete GitLab Delivery Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson1.html"
+                ><span>01</span>Production Capstone: Build, Secure, Scale,
+                Observe, and Govern a Complete GitLab Delivery Platform:
+                Requirements, Constraints, and Target Architecture</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson2.html"
+                ><span>02</span>Production Capstone: Build, Secure, Scale,
+                Observe, and Govern a Complete GitLab Delivery Platform:
+                Implementation and Automation Build-Out</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson3.html"
+                ><span>03</span>Production Capstone: Build, Secure, Scale,
+                Observe, and Govern a Complete GitLab Delivery Platform:
+                Security, Governance, and Reliability Validation</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson4.html"
+                ><span>04</span>Production Capstone: Build, Secure, Scale,
+                Observe, and Govern a Complete GitLab Delivery Platform: Failure
+                Injection, Troubleshooting, and Recovery Drill</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson5.html"
+                ><span>05</span>Production Capstone: Build, Secure, Scale,
+                Observe, and Govern a Complete GitLab Delivery Platform: Final
+                Operational Review and Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">GitLab CI/CD</a><span>/</span
+          ><span>Chapter 30</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 30</span><i></i><span>Lesson 01</span><i></i
+            ><span>~190 minutes</span>
+          </div>
+          <h1>
+            Runner Fleets, Autoscaling, Docker Machine Migration, Kubernetes
+            Runners, Ephemeral Workers, and Capacity Planning: Concepts,
+            Architecture, and Mental Model
+          </h1>
+          <p>
+            Treat runner fleets as capacity systems: connect queue demand,
+            runner eligibility, manager concurrency, executor lifecycle, worker
+            reuse, metrics, isolation, cost bounds, and upgrade/migration
+            evidence.
+          </p>
+          <div class="lesson-tags">
+            <span>Runner fleet</span><span>Capacity</span
+            ><span>Autoscaling</span><span>Fleeting</span><span>Metrics</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Explain why a runner fleet is a queue-and-capacity system rather
+              than “a group of servers.”
+            </li>
+            <li>
+              Trace job arrival → eligibility/tags → runner manager → worker
+              provisioning → executor → job → teardown/reuse → metrics feedback.
+            </li>
+            <li>
+              Separate GitLab pipeline state, runner-manager state, worker
+              state, provider/Kubernetes state, evidence and cost governance.
+            </li>
+            <li>
+              Explain the current Instance/Docker Autoscaler/Fleeting model and
+              the Docker Machine migration boundary.
+            </li>
+            <li>
+              Use read-only evidence before changing concurrency, autoscaling,
+              executor, or fleet topology.
+            </li>
+          </ul>
+        </section>
+        <section id="problem">
+          <h2>
+            1. The practical problem: green jobs can hide an unhealthy fleet
+          </h2>
+          <p>
+            Chapter 29 treated infrastructure mutation as a reviewed state
+            transition. Chapter 30 turns to the infrastructure that executes the
+            pipeline itself. A fleet can produce green jobs while developers
+            wait ten minutes in queue, while idle VMs burn money, while an old
+            Runner version silently misses fixes, or while reused workers retain
+            state from previous untrusted jobs. Conversely, a low-utilization
+            fleet is not automatically wasteful if warm capacity is what keeps
+            critical feedback inside an agreed latency objective.
+          </p>
+          <p>
+            The operating question is therefore not “how many runners do we
+            have?” It is:
+            <em
+              >which jobs arrive, which runners are eligible, how quickly can
+              managers acquire work, how many workers can be provisioned, how
+              long do they live, what isolation boundary do they provide, and
+              what observable evidence proves cost and queue behavior?</em
+            >
+          </p>
+          <div class="callout">
+            <strong>Fleet invariant:</strong> runner eligibility, manager
+            polling capacity, executor capacity, worker lifecycle and
+            provider/Kubernetes capacity are separate controls. Increasing only
+            one can leave the true bottleneck unchanged.
+          </div>
+        </section>
+        <section id="model">
+          <h2>2. Mental model: demand becomes a bounded worker lifecycle</h2>
+          <p>
+            A GitLab pipeline creates jobs with requirements such as tags,
+            protection/trust context, platform and image. Eligible runner
+            managers poll for work. The manager is not necessarily the worker:
+            with Docker Autoscaler or Instance executors, it asks a Fleeting
+            plugin to manage instances; with Kubernetes executor, it asks the
+            Kubernetes API for a new job pod. The worker executes the job, sends
+            logs/artifacts back, and is then reused or destroyed according to
+            policy. Queue duration, provisioning latency, running jobs, errors,
+            worker state and cost feed the next sizing decision.
+          </p>
+          <div class="diagram-card">
+            <div class="diagram-label">Causal runner-fleet lifecycle</div>
+            <div class="mermaid">
+            flowchart TD
+              A[Pipeline job + tags/trust] --&gt; B[GitLab queue]
+              B --&gt; C[Eligible runner manager]
+              C --&gt; D{Capacity available?}
+              D --&gt;|VM fleet| E[Fleeting / provider instance]
+              D --&gt;|Kubernetes| F[Job pod / node capacity]
+              E --&gt; G[Executor prepares job]
+              F --&gt; G
+              G --&gt; H[Checkout + script + artifacts]
+              H --&gt; I{Reuse policy}
+              I --&gt;|max_use_count reached| J[Destroy worker]
+              I --&gt;|reuse allowed| K[Return worker idle]
+              J --&gt; L[Metrics + logs + cost]
+              K --&gt; L
+              L --&gt; C
+          </div>
+          </div>
+          <p>
+            The loop is the important part. Autoscaling is control feedback, not
+            a one-time configuration choice.
+          </p>
+        </section>
+        <section id="state">
+          <h2>3. State domains to keep separate</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>State layer</th>
+                  <th>Evidence to capture</th>
+                  <th>Why it matters</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Pipeline demand</td>
+                  <td>
+                    <code>CI_PIPELINE_SOURCE</code>, ref,
+                    <code>CI_COMMIT_SHA</code>, pipeline/job IDs, job tags
+                  </td>
+                  <td>
+                    Demand must be attributable to an exact pipeline and
+                    eligibility requirement.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Compiled configuration</td>
+                  <td>
+                    Merged YAML, <code>rules</code> result, job graph, tags,
+                    image/services
+                  </td>
+                  <td>
+                    Proves which jobs were created and what runner
+                    characteristics they requested.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Runner registration/eligibility</td>
+                  <td>
+                    Runner ID, scope, protection, tags, paused/online status
+                  </td>
+                  <td>
+                    Determines which manager can request and accept which jobs.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Runner manager</td>
+                  <td>
+                    Runner version, <code>concurrent</code>, per-runner
+                    <code>limit</code>, <code>request_concurrency</code>, logs
+                  </td>
+                  <td>
+                    The manager is a capacity controller and poller, distinct
+                    from the worker that executes a job.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Executor/worker</td>
+                  <td>
+                    Executor type, worker/pod/instance identity, image,
+                    lifetime, reuse count
+                  </td>
+                  <td>
+                    Defines the isolation and lifecycle boundary for untrusted
+                    build code.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Autoscaler</td>
+                  <td>
+                    Fleeting plugin/version, <code>capacity_per_instance</code>,
+                    <code>max_use_count</code>, <code>max_instances</code>, idle
+                    policy
+                  </td>
+                  <td>
+                    These are the hard and soft controls that turn demand into
+                    infrastructure.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Queue/performance</td>
+                  <td>
+                    Queue duration, jobs running, machine creation latency,
+                    request-concurrency pressure
+                  </td>
+                  <td>
+                    Capacity must be tuned from observed demand and cold-start
+                    behavior, not guesswork.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Cost/governance</td>
+                  <td>
+                    Maximum workers, instance size/rate assumptions, budgets,
+                    ownership, change record
+                  </td>
+                  <td>
+                    A technically successful scale-out can still be an
+                    operational failure if cost is unbounded.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Logs/forensics</td>
+                  <td>
+                    Manager logs, job trace, provider/autoscaler events, worker
+                    destruction evidence
+                  </td>
+                  <td>
+                    Ephemeral compute disappears; evidence must leave the worker
+                    before teardown.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Upgrade/migration</td>
+                  <td>
+                    Old/new Runner versions, canary pool, drain state, rollback
+                    image/config
+                  </td>
+                  <td>
+                    Fleet changes need a reversible rollout independent of
+                    application pipelines.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="read-first">
+          <h2>4. Read-only inspection before any fleet change</h2>
+          <p>
+            Start with evidence that does not register, delete, scale or restart
+            anything. On a disposable/self-managed runner manager, typical
+            read-only checks are:
+          </p>
+          <pre><code class="language-bash">gitlab-runner --version
+gitlab-runner list
+# If metrics listening is already enabled, read it without changing configuration:
+curl -fsS http://127.0.0.1:9252/metrics   | grep -E 'gitlab_runner_(version_info|concurrent|limit|request_concurrency|jobs|job_queue_duration_seconds|errors_total)'   | head -80</code></pre>
+          <p>
+            In GitLab, record the runner ID/scope/tags/protection and the
+            waiting job’s <code>CI_PIPELINE_SOURCE</code>,
+            <code>CI_COMMIT_SHA</code>, pipeline/job IDs and requested tags. The
+            metrics endpoint is optional and must already be enabled; do not
+            expose it publicly merely for a lab.
+          </p>
+        </section>
+        <section id="executors">
+          <h2>5. Current executor map</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Executor</th>
+                  <th>Worker model</th>
+                  <th>Autoscaling boundary</th>
+                  <th>Typical reason to choose it</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Docker</td>
+                  <td>Containers on a pre-existing Docker host</td>
+                  <td>Scale the runner hosts by an external mechanism</td>
+                  <td>
+                    Simple containerized jobs when host capacity is already
+                    managed.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Docker Autoscaler</td>
+                  <td>Docker jobs on dynamically managed VM instances</td>
+                  <td>Taskscaler + Fleeting + provider plugin</td>
+                  <td>Docker semantics plus elastic VM isolation/capacity.</td>
+                </tr>
+                <tr>
+                  <td>Instance</td>
+                  <td>Jobs run directly on dynamically managed instances</td>
+                  <td>Taskscaler + Fleeting + provider plugin</td>
+                  <td>
+                    Full host/device/OS access or non-container workloads.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Kubernetes</td>
+                  <td>A new pod per CI job</td>
+                  <td>
+                    Kubernetes schedules pods; node/autoscaling capacity is a
+                    cluster concern
+                  </td>
+                  <td>
+                    Cloud-native scheduling, pod-level isolation and resource
+                    controls.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Docker Machine (legacy)</td>
+                  <td>Docker jobs on VMs created by Docker Machine</td>
+                  <td>Legacy Docker Machine driver model</td>
+                  <td>
+                    Migration source only; deprecated since 17.5 and scheduled
+                    for removal in 20.0.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="autoscaler">
+          <h2>
+            6. Docker Autoscaler and Instance: Fleeting is the provider boundary
+          </h2>
+          <p>
+            Current GitLab Runner uses Taskscaler for autoscaling logic and
+            Fleeting as a plugin abstraction over AWS Auto Scaling Groups,
+            Google instance groups, Azure VM Scale Sets, and supported community
+            providers. Docker Autoscaler wraps Docker executor behavior;
+            Instance executor gives jobs host-level access. Both use
+            <code>[runners.autoscaler]</code>.
+          </p>
+          <pre><code class="language-toml">concurrent = 12
+
+[[runners]]
+  name = "example-ephemeral-linux"
+  executor = "docker-autoscaler"
+  limit = 12
+  request_concurrency = 4
+
+  [runners.docker]
+    image = "alpine:3.22"
+
+  [runners.autoscaler]
+    plugin = "aws"
+    capacity_per_instance = 1
+    max_use_count = 1
+    max_instances = 12
+
+    [[runners.autoscaler.policy]]
+      idle_count = 2
+      idle_time = "10m0s"</code></pre>
+          <p>
+            This is architecture syntax, not a runnable lab: it deliberately
+            omits provider credentials and provider-specific resource
+            identifiers. The hard cost/isolation controls are visible: at most
+            12 instances, one job per instance, one use per instance.
+            <code>concurrent</code> is global to the runner process;
+            <code>limit</code> is per runner configuration.
+          </p>
+        </section>
+        <section id="ownership">
+          <h2>7. One autoscaling resource has one controller</h2>
+          <p>
+            GitLab explicitly requires every Docker Autoscaler configuration to
+            own a dedicated cloud autoscaling resource. Do not attach two runner
+            managers—or two <code>[[runners]]</code> entries—to the same
+            provider group. Each manager maintains instance bookkeeping;
+            competing controllers can issue conflicting scale commands, causing
+            job failures and cost surprises.
+          </p>
+        </section>
+        <section id="kubernetes">
+          <h2>
+            8. Kubernetes executor: one pod per job is not one node per job
+          </h2>
+          <p>
+            The Kubernetes executor creates a pod for each GitLab CI job. That
+            pod is a worker execution unit, while node capacity belongs to the
+            cluster. If pods queue in <em>Pending</em>, the bottleneck may be
+            CPU/memory requests, quotas, taints, topology, image pulls, or
+            node-autoscaler latency—not Runner job polling. Current Runner
+            documentation also includes pause-pod prewarming for Kubernetes
+            executor; treat it as a latency/cost tradeoff and verify the exact
+            Runner version before using it.
+          </p>
+        </section>
+        <section id="concurrency">
+          <h2>9. Four different capacity ceilings</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Control</th>
+                  <th>What it limits</th>
+                  <th>Failure symptom when too low</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>concurrent</code></td>
+                  <td>
+                    Total simultaneous jobs across all
+                    <code>[[runners]]</code> entries in one runner process
+                  </td>
+                  <td>
+                    Managers have eligible work but process-wide slots are
+                    exhausted.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>limit</code></td>
+                  <td>Jobs for one runner configuration</td>
+                  <td>
+                    A specific pool stays capped while other pools have spare
+                    process capacity.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>request_concurrency</code></td>
+                  <td>Concurrent requests for new jobs</td>
+                  <td>
+                    Long-poll request bottleneck; worker capacity exists but
+                    jobs are acquired slowly.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Provider/cluster bounds</td>
+                  <td>
+                    Instances, pods, nodes, quota, <code>max_instances</code>
+                  </td>
+                  <td>
+                    Runner wants capacity but infrastructure cannot provide it.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Current Runner guidance notes that high-volume runners may need
+            <code>request_concurrency</code> above its default of 1. The
+            adaptive request-concurrency feature flag can tune effective
+            concurrency up to the configured ceiling; it cannot exceed a ceiling
+            of 1 unless you raise it.
+          </p>
+        </section>
+        <section id="metrics">
+          <h2>
+            10. Capacity planning starts with queue duration, not CPU alone
+          </h2>
+          <p>
+            Runner exposes Prometheus metrics including current jobs, job
+            duration, queue duration, manager errors, configured
+            concurrency/limit/request concurrency, autoscaling machine state and
+            creation duration. A healthy fleet tracks at least queue latency,
+            provisioning latency, job duration, utilization, errors/retries and
+            infrastructure cost per successful job.
+          </p>
+          <div class="callout">
+            <strong>Do not optimize only for utilization.</strong> A fleet at
+            95% worker utilization can be developer-hostile if queue SLOs are
+            violated; a fleet at 30% can be intentionally prewarmed for
+            low-latency feedback.
+          </div>
+        </section>
+        <section id="ephemeral">
+          <h2>11. Ephemeral is a lifecycle property, not a security slogan</h2>
+          <p>
+            For Fleeting-backed VM workers,
+            <code>capacity_per_instance = 1</code> and
+            <code>max_use_count = 1</code> provide a strong single-job instance
+            lifecycle when combined with a secure base image and teardown
+            verification. Reuse can reduce cold-start cost but increases
+            cross-job residue risk. Kubernetes creates a fresh job pod, yet
+            shared nodes, caches, volumes, service accounts and privileged
+            settings can still cross trust boundaries. Chapter 31 threat-models
+            those boundaries in depth.
+          </p>
+        </section>
+        <section id="upgrade">
+          <h2>12. Runner upgrades are fleet changes</h2>
+          <p>
+            Pin and record Runner versions. Current stable patch on this
+            chapter’s verification date is <code>19.3.2</code>. Use a canary
+            pool, pause/drain it before manager upgrade where practical, verify
+            representative jobs and metrics, then expand. For the Kubernetes
+            Helm chart, GitLab recommends pausing the runner and waiting for
+            jobs to complete before upgrading. Keep the prior
+            package/image/chart and configuration as an explicit rollback
+            target.
+          </p>
+        </section>
+        <section id="docker-machine">
+          <h2>13. Docker Machine migration is now an operational deadline</h2>
+          <p>
+            Docker Machine executor is deprecated and scheduled for removal in
+            GitLab 20.0 (May 2027). A migration should inventory
+            <code>MachineOptions</code>, instance image assumptions, caches,
+            network/security rules, idle policy, job concurrency, special
+            devices and provider quotas; then map those requirements to Docker
+            Autoscaler or Instance plus a Fleeting plugin. Do not perform an
+            in-place “syntax translation” without a capacity and rollback test.
+          </p>
+        </section>
+        <section id="misconceptions">
+          <h2>14. Misconceptions to remove now</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Claim</th>
+                  <th>Why it fails</th>
+                  <th>Better operating model</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>“Autoscaling means unlimited capacity.”</td>
+                  <td>
+                    Provider quotas, <code>max_instances</code>, manager
+                    concurrency and budgets still bound capacity.
+                  </td>
+                  <td>
+                    Define hard worker and cost ceilings before testing burst
+                    behavior.
+                  </td>
+                </tr>
+                <tr>
+                  <td>“Two managers on one ASG improve HA.”</td>
+                  <td>
+                    For Docker Autoscaler, shared control of one autoscaling
+                    resource is unsupported and conflicts with bookkeeping.
+                  </td>
+                  <td>
+                    Use separate autoscaling resources behind the same logical
+                    job tags.
+                  </td>
+                </tr>
+                <tr>
+                  <td>“One pod per job means perfect isolation.”</td>
+                  <td>
+                    Pods can share nodes, caches, credentials, network and
+                    cluster policy.
+                  </td>
+                  <td>
+                    Treat pod lifecycle and node/trust isolation as different
+                    layers.
+                  </td>
+                </tr>
+                <tr>
+                  <td>“If jobs are queued, add VMs.”</td>
+                  <td>
+                    Polling, tags, protection, <code>concurrent</code>,
+                    <code>limit</code> or <code>request_concurrency</code> may
+                    be the bottleneck.
+                  </td>
+                  <td>
+                    Diagnose the causal layer from metrics and eligibility
+                    first.
+                  </td>
+                </tr>
+                <tr>
+                  <td>“Ephemeral workers need no logs.”</td>
+                  <td>Teardown destroys local evidence first.</td>
+                  <td>
+                    Ship manager/provider/job evidence before worker
+                    destruction.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A fleet has idle VMs but GitLab jobs remain pending. What
+                should you inspect before increasing
+                <code>max_instances</code>?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Runner eligibility/tags/protection, process
+                <code>concurrent</code>, per-runner <code>limit</code>,
+                <code>request_concurrency</code>/long-poll evidence, manager
+                health and job requirements. Idle infrastructure does not prove
+                the manager can accept the job.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong>Why is <code>max_use_count = 1</code> meaningful?</strong>
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                It schedules an autoscaled instance for removal after one use,
+                strengthening the worker lifecycle boundary and reducing
+                cross-job residue risk.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Can two Docker Autoscaler managers safely control the same AWS
+                Auto Scaling Group?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. GitLab requires a dedicated autoscaling resource per
+                autoscaler configuration because competing controllers can issue
+                conflicting state changes.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What is the difference between Kubernetes job-pod scaling and
+                node scaling?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Runner creates a pod per job; the Kubernetes scheduler and
+                cluster/node autoscaler determine whether underlying node
+                capacity exists. They are separate control loops.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is queue duration a better first fleet SLO than average CPU
+                utilization?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Queue duration directly represents developer wait for capacity.
+                CPU can look efficient while jobs wait, or look low by design
+                when warm capacity is preserving latency.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section class="next-concepts">
+          <span>Next lesson</span>
+          <h3>Continue to the guided workflow</h3>
+          <p>
+            Lesson 2 builds a completely local queue/capacity simulator,
+            measures a burst, compares static and elastic designs, and turns the
+            observations into a bounded Docker Machine migration plan.
+          </p>
+        </section>
+                <section class="callout version-note-card" id="version-compatibility">
+          <h2>Version and compatibility note</h2>
+          <p>
+            GitLab and GitLab Runner evolve continuously. Treat version-sensitive YAML,
+            runner/executor behavior, APIs, security features, policy controls, tiers,
+            and deprecations as assumptions to verify against the current official GitLab
+            documentation before production use. Preserve the exact project/ref/SHA,
+            compiled configuration, pipeline/job IDs, runner/tool versions, and external
+            target evidence used for any reproducible lab or incident record.
+          </p>
+        </section>
+<section id="references">
+          <h2>Official references and version notes</h2>
+          <p>
+            <strong>Documentation verification date:</strong> 2026-09-12.
+            Current stable GitLab Runner patch verified for this chapter is
+            <code>19.3.2</code> (tagged 2026-09-10). The Docker Machine executor
+            was deprecated in GitLab 17.5 and is scheduled for removal as a
+            supported feature in GitLab 20.0 (May 2027); GitLab directs users
+            toward the Instance or Docker Autoscaler executors. Docker
+            Autoscaler is GA and, together with the Instance executor, uses
+            Taskscaler/Fleeting. A Docker Autoscaler configuration must have its
+            own dedicated provider autoscaling resource and must not share that
+            resource with another manager or another
+            <code>[[runners]]</code> entry. The mandatory exercises in this
+            chapter are local simulations and require no cloud account, runner
+            registration token, privileged executor, or managed Kubernetes
+            cluster. Runner 19.3 introduced
+            <code>gitlab-runner config lint</code>; use it during real fleet
+            changes to validate manager configuration syntax before rollout,
+            while still testing behavior on a canary.
+          </p>
+          <ul>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/executors/"
+                rel="noopener"
+                target="_blank"
+                >Executors</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/runner_autoscale/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Runner autoscaling</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/executors/docker_autoscaler/"
+                rel="noopener"
+                target="_blank"
+                >Docker Autoscaler executor</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/executors/instance/"
+                rel="noopener"
+                target="_blank"
+                >Instance executor</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/fleet_scaling/fleeting/"
+                rel="noopener"
+                target="_blank"
+                >Fleeting</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/fleet_scaling/"
+                rel="noopener"
+                target="_blank"
+                >Plan and operate a runner fleet</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/configuration/advanced-configuration/"
+                rel="noopener"
+                target="_blank"
+                >Advanced Runner configuration</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/monitoring/"
+                rel="noopener"
+                target="_blank"
+                >Monitor GitLab Runner usage</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/executors/kubernetes/"
+                rel="noopener"
+                target="_blank"
+                >Kubernetes executor</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/install/kubernetes/"
+                rel="noopener"
+                target="_blank"
+                >GitLab Runner Helm chart</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/executors/docker_machine/"
+                rel="noopener"
+                target="_blank"
+                >Docker Machine executor</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/update/deprecations/"
+                rel="noopener"
+                target="_blank"
+                >GitLab deprecations and removals</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://docs.gitlab.com/runner/faq/"
+                rel="noopener"
+                target="_blank"
+                >Runner troubleshooting</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://gitlab.com/gitlab-org/gitlab-runner/-/blob/main/CHANGELOG.md"
+                rel="noopener"
+                target="_blank"
+                >GitLab Runner changelog</a
+              >
+              — official reference.
+            </li>
+            <li>
+              <a
+                href="https://gitlab.com/gitlab-org/gitlab-runner/-/tags"
+                rel="noopener"
+                target="_blank"
+                >GitLab Runner tags</a
+              >
+              — official reference.
+            </li>
+          </ul>
+          <p class="callout info version-note-card assumptions-card">
+            <strong>Current assumptions used in this chapter:</strong>
+            Version-sensitive YAML, Runner/executor behavior, APIs, security features, policy controls, tiers, and deprecations must be verified against the exact GitLab, GitLab Runner, tool, and external-system versions used in production. Preserve the exact project/ref/SHA, compiled configuration, pipeline/job IDs, runner/tool versions, and external target evidence used for reproducible work.
+          </p>
+        </section>
+        <nav aria-label="Lesson pagination" class="lesson-pagination">
+          <a href="../Chapter29/Lesson5.html">Previous lesson</a
+          ><a href="../index.html">Course curriculum</a
+          ><a href="Lesson2.html">Next lesson</a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              >
+              <a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              >
+              <a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              >
+              <a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              >
+              <a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            >
+            <button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path>
+              </svg>
+              <span>Copy address</span>
+            </button>
+            <small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            >
+            <span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+        <script defer="" src="../gitlab-ci-cd-consistency.js"></script>
+<script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+    <script data-gitlab-ci-cd-toc-unnumbered="">
+      (() => {
+        const toc = document.querySelector("[data-on-page-toc]");
+        if (!toc) return;
+        const strip = (label) =>
+          label.replace(
+            /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+            "",
+          );
+        const normalize = () =>
+          toc.querySelectorAll("a").forEach((link) => {
+            const cleaned = strip(link.textContent);
+            if (cleaned !== link.textContent) link.textContent = cleaned;
+          });
+        normalize();
+        const observer = new MutationObserver(normalize);
+        observer.observe(toc, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      })();
+    </script>
+  </body>
+</html>
