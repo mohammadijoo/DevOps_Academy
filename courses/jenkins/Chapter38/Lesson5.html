@@ -1,0 +1,3188 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Tune Jenkins from measured bottlenecks by separating queue delay, executor and agent capacity, controller CPU/heap/GC, Pipeline/CPS load, disk I/O, workspace/artifact traffic, and external-service latency."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Checkpoint Lab — Performance Engineering: Executors, Queueing, Heap,
+      Garbage Collection, Disk I/O, Workspaces, and Controller Load | Jenkins
+      Complete Course | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/groovy.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <style id="jenkins-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      .lesson-article .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin: 22px 0;
+      }
+      .lesson-article .evidence-card {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .lesson-article .evidence-card strong {
+        display: block;
+        color: var(--text);
+        margin-bottom: 7px;
+      }
+      .lesson-article .evidence-card p {
+        margin: 0;
+        font-size: 13px;
+      }
+      .lesson-article .command-note {
+        font-size: 12px;
+        color: var(--muted-2);
+        margin-top: -10px;
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+    <style data-jenkins-overflow-guard>
+      body.lesson-page .lesson-shell,
+      body.lesson-page .lesson-article,
+      body.lesson-page .on-page-toc {
+        min-width: 0;
+      }
+      body.lesson-page .lesson-article h1,
+      body.lesson-page .lesson-article h2,
+      body.lesson-page .lesson-article h3,
+      body.lesson-page .lesson-article p,
+      body.lesson-page .lesson-article li,
+      body.lesson-page .lesson-article dt,
+      body.lesson-page .lesson-article dd,
+      body.lesson-page .lesson-article blockquote {
+        overflow-wrap: anywhere;
+      }
+      body.lesson-page .lesson-article p code,
+      body.lesson-page .lesson-article li code {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      body.lesson-page .lesson-article .mermaid {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      body.lesson-page .lesson-article .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+      body.lesson-page .lesson-article > *,
+      body.lesson-page .lesson-article .callout,
+      body.lesson-page .lesson-article .quiz-card,
+      body.lesson-page .lesson-article .next-concepts {
+        min-width: 0;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      body.lesson-page .lesson-article pre {
+        max-width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+      body.lesson-page .lesson-article a {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      body.lesson-page .lesson-article img,
+      body.lesson-page .lesson-article video,
+      body.lesson-page .lesson-article canvas {
+        max-width: 100%;
+        height: auto;
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+          ><span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span
+          ><span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          ></a
+        >
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a
+          ><a class="is-active" href="../../../index.html#courses">Courses</a
+          ><a href="../../../index.html#method">Method</a
+          ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+            ><svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path></svg></a
+          ><button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg></button
+          ><button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">JNK</span>
+            <div>
+              <small>Course 15</small><strong>Jenkins Complete Course</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 205 lessons..."
+            type="search"
+        /></label>
+        <nav aria-label="Jenkins course curriculum" class="sidebar-curriculum">
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Jenkins and CI/CD Foundations, Controller-Agent
+              Architecture, Jobs, Builds, and Automation Boundaries
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Jenkins and CI/CD Foundations, Controller-Agent
+                Architecture, Jobs, Builds, and Automation Boundaries: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Jenkins and CI/CD Foundations, Controller-Agent
+                Architecture, Jobs, Builds, and Automation Boundaries: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Jenkins and CI/CD Foundations, Controller-Agent
+                Architecture, Jobs, Builds, and Automation Boundaries:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Jenkins and CI/CD Foundations, Controller-Agent
+                Architecture, Jobs, Builds, and Automation Boundaries:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Jenkins and CI/CD Foundations,
+                Controller-Agent Architecture, Jobs, Builds, and Automation
+                Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Jenkins LTS Installation, Java 21/25 Runtime
+              Planning, Packages, Containers, and Initial Setup
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Jenkins LTS Installation, Java 21/25 Runtime
+                Planning, Packages, Containers, and Initial Setup: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Jenkins LTS Installation, Java 21/25 Runtime
+                Planning, Packages, Containers, and Initial Setup: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Jenkins LTS Installation, Java 21/25 Runtime
+                Planning, Packages, Containers, and Initial Setup:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Jenkins LTS Installation, Java 21/25 Runtime
+                Planning, Packages, Containers, and Initial Setup: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Jenkins LTS Installation, Java
+                21/25 Runtime Planning, Packages, Containers, and Initial
+                Setup</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>JENKINS_HOME, Filesystem Layout, Controller
+              Configuration, System Settings, Tools, and Global Properties
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>JENKINS_HOME, Filesystem Layout, Controller
+                Configuration, System Settings, Tools, and Global Properties:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>JENKINS_HOME, Filesystem Layout, Controller
+                Configuration, System Settings, Tools, and Global Properties:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>JENKINS_HOME, Filesystem Layout, Controller
+                Configuration, System Settings, Tools, and Global Properties:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>JENKINS_HOME, Filesystem Layout, Controller
+                Configuration, System Settings, Tools, and Global Properties:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — JENKINS_HOME, Filesystem
+                Layout, Controller Configuration, System Settings, Tools, and
+                Global Properties</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Users, Authentication Realms, Authorization
+              Strategies, Matrix Permissions, Folders, and Least Privilege
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Users, Authentication Realms, Authorization
+                Strategies, Matrix Permissions, Folders, and Least Privilege:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Users, Authentication Realms, Authorization
+                Strategies, Matrix Permissions, Folders, and Least Privilege:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Users, Authentication Realms, Authorization
+                Strategies, Matrix Permissions, Folders, and Least Privilege:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Users, Authentication Realms, Authorization
+                Strategies, Matrix Permissions, Folders, and Least Privilege:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Users, Authentication Realms,
+                Authorization Strategies, Matrix Permissions, Folders, and Least
+                Privilege</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Freestyle Projects, Build Steps, Post-Build
+              Actions, Parameters, Triggers, and Legacy Job Maintenance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Freestyle Projects, Build Steps, Post-Build
+                Actions, Parameters, Triggers, and Legacy Job Maintenance:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Freestyle Projects, Build Steps, Post-Build
+                Actions, Parameters, Triggers, and Legacy Job Maintenance:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Freestyle Projects, Build Steps, Post-Build
+                Actions, Parameters, Triggers, and Legacy Job Maintenance:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Freestyle Projects, Build Steps, Post-Build
+                Actions, Parameters, Triggers, and Legacy Job Maintenance:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Freestyle Projects, Build
+                Steps, Post-Build Actions, Parameters, Triggers, and Legacy Job
+                Maintenance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Source Control Integration, Git Plugin,
+              Credentials, Polling, Webhooks, and Multirepository Checkout
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Source Control Integration, Git Plugin,
+                Credentials, Polling, Webhooks, and Multirepository Checkout:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Source Control Integration, Git Plugin,
+                Credentials, Polling, Webhooks, and Multirepository Checkout:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Source Control Integration, Git Plugin,
+                Credentials, Polling, Webhooks, and Multirepository Checkout:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Source Control Integration, Git Plugin,
+                Credentials, Polling, Webhooks, and Multirepository Checkout:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Source Control Integration, Git
+                Plugin, Credentials, Polling, Webhooks, and Multirepository
+                Checkout</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Build Parameters, Environment Variables, Build
+              Causes, Schedules, Remote Triggers, and Parameterized Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Build Parameters, Environment Variables, Build
+                Causes, Schedules, Remote Triggers, and Parameterized
+                Automation: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Build Parameters, Environment Variables, Build
+                Causes, Schedules, Remote Triggers, and Parameterized
+                Automation: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Build Parameters, Environment Variables, Build
+                Causes, Schedules, Remote Triggers, and Parameterized
+                Automation: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Build Parameters, Environment Variables, Build
+                Causes, Schedules, Remote Triggers, and Parameterized
+                Automation: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Build Parameters, Environment
+                Variables, Build Causes, Schedules, Remote Triggers, and
+                Parameterized Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Tool Installations, JDKs, Maven, Gradle, Node.js,
+              Docker CLI, and Reproducible Build Environments
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Tool Installations, JDKs, Maven, Gradle,
+                Node.js, Docker CLI, and Reproducible Build Environments:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Tool Installations, JDKs, Maven, Gradle,
+                Node.js, Docker CLI, and Reproducible Build Environments: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Tool Installations, JDKs, Maven, Gradle,
+                Node.js, Docker CLI, and Reproducible Build Environments:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Tool Installations, JDKs, Maven, Gradle,
+                Node.js, Docker CLI, and Reproducible Build Environments:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Tool Installations, JDKs,
+                Maven, Gradle, Node.js, Docker CLI, and Reproducible Build
+                Environments</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>Pipeline Fundamentals, Jenkinsfile, Pipeline
+              Engine, Durable Execution, Nodes, Workspaces, and Stages
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>Pipeline Fundamentals, Jenkinsfile, Pipeline
+                Engine, Durable Execution, Nodes, Workspaces, and Stages:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>Pipeline Fundamentals, Jenkinsfile, Pipeline
+                Engine, Durable Execution, Nodes, Workspaces, and Stages: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>Pipeline Fundamentals, Jenkinsfile, Pipeline
+                Engine, Durable Execution, Nodes, Workspaces, and Stages:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>Pipeline Fundamentals, Jenkinsfile, Pipeline
+                Engine, Durable Execution, Nodes, Workspaces, and Stages:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Fundamentals,
+                Jenkinsfile, Pipeline Engine, Durable Execution, Nodes,
+                Workspaces, and Stages</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Declarative Pipeline Syntax, agent, stages, steps,
+              options, parameters, environment, tools, and post
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Declarative Pipeline Syntax, agent, stages,
+                steps, options, parameters, environment, tools, and post:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Declarative Pipeline Syntax, agent, stages,
+                steps, options, parameters, environment, tools, and post: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Declarative Pipeline Syntax, agent, stages,
+                steps, options, parameters, environment, tools, and post:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Declarative Pipeline Syntax, agent, stages,
+                steps, options, parameters, environment, tools, and post:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Declarative Pipeline Syntax,
+                agent, stages, steps, options, parameters, environment, tools,
+                and post</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Scripted Pipeline, Groovy Control Flow, node
+              Blocks, Dynamic Logic, and When to Use Scripted Pipelines
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Scripted Pipeline, Groovy Control Flow, node
+                Blocks, Dynamic Logic, and When to Use Scripted Pipelines:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Scripted Pipeline, Groovy Control Flow, node
+                Blocks, Dynamic Logic, and When to Use Scripted Pipelines:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Scripted Pipeline, Groovy Control Flow, node
+                Blocks, Dynamic Logic, and When to Use Scripted Pipelines:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Scripted Pipeline, Groovy Control Flow, node
+                Blocks, Dynamic Logic, and When to Use Scripted Pipelines:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Scripted Pipeline, Groovy
+                Control Flow, node Blocks, Dynamic Logic, and When to Use
+                Scripted Pipelines</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Pipeline Steps, Error Handling, retry, timeout,
+              catchError, input, waitUntil, and Resilient Flow Control
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Pipeline Steps, Error Handling, retry, timeout,
+                catchError, input, waitUntil, and Resilient Flow Control:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Pipeline Steps, Error Handling, retry, timeout,
+                catchError, input, waitUntil, and Resilient Flow Control: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Pipeline Steps, Error Handling, retry, timeout,
+                catchError, input, waitUntil, and Resilient Flow Control:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Pipeline Steps, Error Handling, retry, timeout,
+                catchError, input, waitUntil, and Resilient Flow Control:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Pipeline Steps, Error Handling,
+                retry, timeout, catchError, input, waitUntil, and Resilient Flow
+                Control</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Groovy CPS, Serialization, @NonCPS, Pipeline State,
+              Restarts, and Common Pipeline Programming Pitfalls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Groovy CPS, Serialization, @NonCPS, Pipeline
+                State, Restarts, and Common Pipeline Programming Pitfalls:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Groovy CPS, Serialization, @NonCPS, Pipeline
+                State, Restarts, and Common Pipeline Programming Pitfalls:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Groovy CPS, Serialization, @NonCPS, Pipeline
+                State, Restarts, and Common Pipeline Programming Pitfalls:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Groovy CPS, Serialization, @NonCPS, Pipeline
+                State, Restarts, and Common Pipeline Programming Pitfalls:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Groovy CPS, Serialization,
+                @NonCPS, Pipeline State, Restarts, and Common Pipeline
+                Programming Pitfalls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Artifacts, stash/unstash, archiveArtifacts,
+              Fingerprints, Test Reports, Coverage, and Build Evidence
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Artifacts, stash/unstash, archiveArtifacts,
+                Fingerprints, Test Reports, Coverage, and Build Evidence:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Artifacts, stash/unstash, archiveArtifacts,
+                Fingerprints, Test Reports, Coverage, and Build Evidence: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Artifacts, stash/unstash, archiveArtifacts,
+                Fingerprints, Test Reports, Coverage, and Build Evidence:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Artifacts, stash/unstash, archiveArtifacts,
+                Fingerprints, Test Reports, Coverage, and Build Evidence:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifacts, stash/unstash,
+                archiveArtifacts, Fingerprints, Test Reports, Coverage, and
+                Build Evidence</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Credentials Store, Secret Text, Files, SSH Keys,
+              Username/Password, Binding, and Secret Hygiene
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Credentials Store, Secret Text, Files, SSH Keys,
+                Username/Password, Binding, and Secret Hygiene: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Credentials Store, Secret Text, Files, SSH Keys,
+                Username/Password, Binding, and Secret Hygiene: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Credentials Store, Secret Text, Files, SSH Keys,
+                Username/Password, Binding, and Secret Hygiene: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Credentials Store, Secret Text, Files, SSH Keys,
+                Username/Password, Binding, and Secret Hygiene: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Credentials Store, Secret Text,
+                Files, SSH Keys, Username/Password, Binding, and Secret
+                Hygiene</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Secret Masking Limits, Credentials Scope, External
+              Secret Providers, Vault Integration, and Rotation Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Secret Masking Limits, Credentials Scope,
+                External Secret Providers, Vault Integration, and Rotation
+                Patterns: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Secret Masking Limits, Credentials Scope,
+                External Secret Providers, Vault Integration, and Rotation
+                Patterns: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Secret Masking Limits, Credentials Scope,
+                External Secret Providers, Vault Integration, and Rotation
+                Patterns: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Secret Masking Limits, Credentials Scope,
+                External Secret Providers, Vault Integration, and Rotation
+                Patterns: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Secret Masking Limits,
+                Credentials Scope, External Secret Providers, Vault Integration,
+                and Rotation Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Nodes, Agents, Labels, Executors, Workspaces,
+              Offline Causes, and Agent Capacity Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Nodes, Agents, Labels, Executors, Workspaces,
+                Offline Causes, and Agent Capacity Design: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Nodes, Agents, Labels, Executors, Workspaces,
+                Offline Causes, and Agent Capacity Design: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Nodes, Agents, Labels, Executors, Workspaces,
+                Offline Causes, and Agent Capacity Design: Configuration, Design
+                Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Nodes, Agents, Labels, Executors, Workspaces,
+                Offline Causes, and Agent Capacity Design: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Nodes, Agents, Labels,
+                Executors, Workspaces, Offline Causes, and Agent Capacity
+                Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>SSH, Inbound, WebSocket, Windows, and Ephemeral
+              Agents: Connectivity, Remoting, and Agent Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>SSH, Inbound, WebSocket, Windows, and Ephemeral
+                Agents: Connectivity, Remoting, and Agent Lifecycle: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>SSH, Inbound, WebSocket, Windows, and Ephemeral
+                Agents: Connectivity, Remoting, and Agent Lifecycle: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>SSH, Inbound, WebSocket, Windows, and Ephemeral
+                Agents: Connectivity, Remoting, and Agent Lifecycle:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>SSH, Inbound, WebSocket, Windows, and Ephemeral
+                Agents: Connectivity, Remoting, and Agent Lifecycle:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SSH, Inbound, WebSocket,
+                Windows, and Ephemeral Agents: Connectivity, Remoting, and Agent
+                Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Docker Pipeline, Containerized Build Steps, Docker
+              Agents, Sidecars, Registries, and Image Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Docker Pipeline, Containerized Build Steps,
+                Docker Agents, Sidecars, Registries, and Image Workflows:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Docker Pipeline, Containerized Build Steps,
+                Docker Agents, Sidecars, Registries, and Image Workflows: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Docker Pipeline, Containerized Build Steps,
+                Docker Agents, Sidecars, Registries, and Image Workflows:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Docker Pipeline, Containerized Build Steps,
+                Docker Agents, Sidecars, Registries, and Image Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Pipeline, Containerized
+                Build Steps, Docker Agents, Sidecars, Registries, and Image
+                Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Kubernetes Plugin, Pod Templates, Dynamic
+              Kubernetes Agents, Volumes, Service Accounts, and Cluster Scaling
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Kubernetes Plugin, Pod Templates, Dynamic
+                Kubernetes Agents, Volumes, Service Accounts, and Cluster
+                Scaling: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Kubernetes Plugin, Pod Templates, Dynamic
+                Kubernetes Agents, Volumes, Service Accounts, and Cluster
+                Scaling: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Kubernetes Plugin, Pod Templates, Dynamic
+                Kubernetes Agents, Volumes, Service Accounts, and Cluster
+                Scaling: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Kubernetes Plugin, Pod Templates, Dynamic
+                Kubernetes Agents, Volumes, Service Accounts, and Cluster
+                Scaling: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Kubernetes Plugin, Pod
+                Templates, Dynamic Kubernetes Agents, Volumes, Service Accounts,
+                and Cluster Scaling</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Parallel Stages, Matrix Builds, Fail-Fast Behavior,
+              Test Sharding, and High-Throughput Pipeline Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Parallel Stages, Matrix Builds, Fail-Fast
+                Behavior, Test Sharding, and High-Throughput Pipeline Design:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Parallel Stages, Matrix Builds, Fail-Fast
+                Behavior, Test Sharding, and High-Throughput Pipeline Design:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Parallel Stages, Matrix Builds, Fail-Fast
+                Behavior, Test Sharding, and High-Throughput Pipeline Design:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Parallel Stages, Matrix Builds, Fail-Fast
+                Behavior, Test Sharding, and High-Throughput Pipeline Design:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Parallel Stages, Matrix Builds,
+                Fail-Fast Behavior, Test Sharding, and High-Throughput Pipeline
+                Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>Multibranch Pipelines, Branch Sources, Pull Request
+              Discovery, Jenkinsfile Trust, and Branch Indexing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>Multibranch Pipelines, Branch Sources, Pull
+                Request Discovery, Jenkinsfile Trust, and Branch Indexing:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>Multibranch Pipelines, Branch Sources, Pull
+                Request Discovery, Jenkinsfile Trust, and Branch Indexing:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>Multibranch Pipelines, Branch Sources, Pull
+                Request Discovery, Jenkinsfile Trust, and Branch Indexing:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>Multibranch Pipelines, Branch Sources, Pull
+                Request Discovery, Jenkinsfile Trust, and Branch Indexing:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Multibranch Pipelines, Branch
+                Sources, Pull Request Discovery, Jenkinsfile Trust, and Branch
+                Indexing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Organization Folders, GitHub/GitLab/Bitbucket
+              Discovery, Repository Onboarding, and Platform Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Organization Folders, GitHub/GitLab/Bitbucket
+                Discovery, Repository Onboarding, and Platform Automation:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Organization Folders, GitHub/GitLab/Bitbucket
+                Discovery, Repository Onboarding, and Platform Automation:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Organization Folders, GitHub/GitLab/Bitbucket
+                Discovery, Repository Onboarding, and Platform Automation:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Organization Folders, GitHub/GitLab/Bitbucket
+                Discovery, Repository Onboarding, and Platform Automation:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Organization Folders,
+                GitHub/GitLab/Bitbucket Discovery, Repository Onboarding, and
+                Platform Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Shared Libraries, Global Variables, vars, src,
+              resources, Versioning, Testing, and Pipeline Product Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Shared Libraries, Global Variables, vars, src,
+                resources, Versioning, Testing, and Pipeline Product Design:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Shared Libraries, Global Variables, vars, src,
+                resources, Versioning, Testing, and Pipeline Product Design:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Shared Libraries, Global Variables, vars, src,
+                resources, Versioning, Testing, and Pipeline Product Design:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Shared Libraries, Global Variables, vars, src,
+                resources, Versioning, Testing, and Pipeline Product Design:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Shared Libraries, Global
+                Variables, vars, src, resources, Versioning, Testing, and
+                Pipeline Product Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Plugin Ecosystem, Plugin Dependencies, Update
+              Center, Compatibility, Pinning, Removal, and Plugin Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Plugin Ecosystem, Plugin Dependencies, Update
+                Center, Compatibility, Pinning, Removal, and Plugin Governance:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Plugin Ecosystem, Plugin Dependencies, Update
+                Center, Compatibility, Pinning, Removal, and Plugin Governance:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Plugin Ecosystem, Plugin Dependencies, Update
+                Center, Compatibility, Pinning, Removal, and Plugin Governance:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Plugin Ecosystem, Plugin Dependencies, Update
+                Center, Compatibility, Pinning, Removal, and Plugin Governance:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Plugin Ecosystem, Plugin
+                Dependencies, Update Center, Compatibility, Pinning, Removal,
+                and Plugin Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Jenkins Configuration as Code, YAML Bundles,
+              Secrets, Reloading, Validation, and Git-Managed Controller State
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Jenkins Configuration as Code, YAML Bundles,
+                Secrets, Reloading, Validation, and Git-Managed Controller
+                State: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Jenkins Configuration as Code, YAML Bundles,
+                Secrets, Reloading, Validation, and Git-Managed Controller
+                State: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Jenkins Configuration as Code, YAML Bundles,
+                Secrets, Reloading, Validation, and Git-Managed Controller
+                State: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Jenkins Configuration as Code, YAML Bundles,
+                Secrets, Reloading, Validation, and Git-Managed Controller
+                State: Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Jenkins Configuration as Code,
+                YAML Bundles, Secrets, Reloading, Validation, and Git-Managed
+                Controller State</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>Job DSL, Seed Jobs, Folder Hierarchies,
+              Programmatic Job Creation, and Jenkins API Automation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>Job DSL, Seed Jobs, Folder Hierarchies,
+                Programmatic Job Creation, and Jenkins API Automation: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>Job DSL, Seed Jobs, Folder Hierarchies,
+                Programmatic Job Creation, and Jenkins API Automation: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>Job DSL, Seed Jobs, Folder Hierarchies,
+                Programmatic Job Creation, and Jenkins API Automation:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>Job DSL, Seed Jobs, Folder Hierarchies,
+                Programmatic Job Creation, and Jenkins API Automation:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Job DSL, Seed Jobs, Folder
+                Hierarchies, Programmatic Job Creation, and Jenkins API
+                Automation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>REST API, CLI, Script Console, Groovy
+              Administration, Safe Automation, and Administrative Guardrails
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>REST API, CLI, Script Console, Groovy
+                Administration, Safe Automation, and Administrative Guardrails:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>REST API, CLI, Script Console, Groovy
+                Administration, Safe Automation, and Administrative Guardrails:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>REST API, CLI, Script Console, Groovy
+                Administration, Safe Automation, and Administrative Guardrails:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>REST API, CLI, Script Console, Groovy
+                Administration, Safe Automation, and Administrative Guardrails:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — REST API, CLI, Script Console,
+                Groovy Administration, Safe Automation, and Administrative
+                Guardrails</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Security Hardening, CSRF, Agent-to-Controller
+              Controls, Script Security, CSP, TLS, and Reverse Proxies
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Security Hardening, CSRF, Agent-to-Controller
+                Controls, Script Security, CSP, TLS, and Reverse Proxies:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Security Hardening, CSRF, Agent-to-Controller
+                Controls, Script Security, CSP, TLS, and Reverse Proxies: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Security Hardening, CSRF, Agent-to-Controller
+                Controls, Script Security, CSP, TLS, and Reverse Proxies:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Security Hardening, CSRF, Agent-to-Controller
+                Controls, Script Security, CSP, TLS, and Reverse Proxies:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Security Hardening, CSRF,
+                Agent-to-Controller Controls, Script Security, CSP, TLS, and
+                Reverse Proxies</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>SSO, LDAP, OIDC/SAML Plugins, External Identity,
+              RBAC Patterns, and Enterprise Access Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>SSO, LDAP, OIDC/SAML Plugins, External Identity,
+                RBAC Patterns, and Enterprise Access Governance: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>SSO, LDAP, OIDC/SAML Plugins, External Identity,
+                RBAC Patterns, and Enterprise Access Governance: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>SSO, LDAP, OIDC/SAML Plugins, External Identity,
+                RBAC Patterns, and Enterprise Access Governance: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>SSO, LDAP, OIDC/SAML Plugins, External Identity,
+                RBAC Patterns, and Enterprise Access Governance: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SSO, LDAP, OIDC/SAML Plugins,
+                External Identity, RBAC Patterns, and Enterprise Access
+                Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Software Supply-Chain Security, SBOMs, Signatures,
+              Provenance, Trusted Agents, and Dependency Controls
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Software Supply-Chain Security, SBOMs,
+                Signatures, Provenance, Trusted Agents, and Dependency Controls:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Software Supply-Chain Security, SBOMs,
+                Signatures, Provenance, Trusted Agents, and Dependency Controls:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Software Supply-Chain Security, SBOMs,
+                Signatures, Provenance, Trusted Agents, and Dependency Controls:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Software Supply-Chain Security, SBOMs,
+                Signatures, Provenance, Trusted Agents, and Dependency Controls:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Software Supply-Chain Security,
+                SBOMs, Signatures, Provenance, Trusted Agents, and Dependency
+                Controls</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>32</span>Artifact Repositories, Nexus/Artifactory
+              Integration, Package Promotion, Build Metadata, and Release
+              Traceability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson1.html"
+                ><span>01</span>Artifact Repositories, Nexus/Artifactory
+                Integration, Package Promotion, Build Metadata, and Release
+                Traceability: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson2.html"
+                ><span>02</span>Artifact Repositories, Nexus/Artifactory
+                Integration, Package Promotion, Build Metadata, and Release
+                Traceability: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson3.html"
+                ><span>03</span>Artifact Repositories, Nexus/Artifactory
+                Integration, Package Promotion, Build Metadata, and Release
+                Traceability: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson4.html"
+                ><span>04</span>Artifact Repositories, Nexus/Artifactory
+                Integration, Package Promotion, Build Metadata, and Release
+                Traceability: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Artifact Repositories,
+                Nexus/Artifactory Integration, Package Promotion, Build
+                Metadata, and Release Traceability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>33</span>Testing and Quality Pipelines: JUnit, Coverage,
+              SonarQube, Selenium, JMeter, and Quality Gates
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson1.html"
+                ><span>01</span>Testing and Quality Pipelines: JUnit, Coverage,
+                SonarQube, Selenium, JMeter, and Quality Gates: Concepts,
+                Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson2.html"
+                ><span>02</span>Testing and Quality Pipelines: JUnit, Coverage,
+                SonarQube, Selenium, JMeter, and Quality Gates: Guided Hands-On
+                Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson3.html"
+                ><span>03</span>Testing and Quality Pipelines: JUnit, Coverage,
+                SonarQube, Selenium, JMeter, and Quality Gates: Configuration,
+                Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson4.html"
+                ><span>04</span>Testing and Quality Pipelines: JUnit, Coverage,
+                SonarQube, Selenium, JMeter, and Quality Gates: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Testing and Quality Pipelines:
+                JUnit, Coverage, SonarQube, Selenium, JMeter, and Quality
+                Gates</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>34</span>Notifications, Checks, Commit Status, Pull Request
+              Feedback, Chat Integrations, and Release Communication
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson1.html"
+                ><span>01</span>Notifications, Checks, Commit Status, Pull
+                Request Feedback, Chat Integrations, and Release Communication:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson2.html"
+                ><span>02</span>Notifications, Checks, Commit Status, Pull
+                Request Feedback, Chat Integrations, and Release Communication:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson3.html"
+                ><span>03</span>Notifications, Checks, Commit Status, Pull
+                Request Feedback, Chat Integrations, and Release Communication:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson4.html"
+                ><span>04</span>Notifications, Checks, Commit Status, Pull
+                Request Feedback, Chat Integrations, and Release Communication:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Notifications, Checks, Commit
+                Status, Pull Request Feedback, Chat Integrations, and Release
+                Communication</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>35</span>Controller Resilience, Queue Recovery, Agent Loss,
+              Pipeline Durability, Maintenance Windows, and Failure Modes
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson1.html"
+                ><span>01</span>Controller Resilience, Queue Recovery, Agent
+                Loss, Pipeline Durability, Maintenance Windows, and Failure
+                Modes: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson2.html"
+                ><span>02</span>Controller Resilience, Queue Recovery, Agent
+                Loss, Pipeline Durability, Maintenance Windows, and Failure
+                Modes: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson3.html"
+                ><span>03</span>Controller Resilience, Queue Recovery, Agent
+                Loss, Pipeline Durability, Maintenance Windows, and Failure
+                Modes: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson4.html"
+                ><span>04</span>Controller Resilience, Queue Recovery, Agent
+                Loss, Pipeline Durability, Maintenance Windows, and Failure
+                Modes: Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Controller Resilience, Queue
+                Recovery, Agent Loss, Pipeline Durability, Maintenance Windows,
+                and Failure Modes</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>36</span>Backup, Restore, Disaster Recovery, Controller
+              Migration, Configuration Recovery, and Recovery Testing
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson1.html"
+                ><span>01</span>Backup, Restore, Disaster Recovery, Controller
+                Migration, Configuration Recovery, and Recovery Testing:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson2.html"
+                ><span>02</span>Backup, Restore, Disaster Recovery, Controller
+                Migration, Configuration Recovery, and Recovery Testing: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson3.html"
+                ><span>03</span>Backup, Restore, Disaster Recovery, Controller
+                Migration, Configuration Recovery, and Recovery Testing:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson4.html"
+                ><span>04</span>Backup, Restore, Disaster Recovery, Controller
+                Migration, Configuration Recovery, and Recovery Testing:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Backup, Restore, Disaster
+                Recovery, Controller Migration, Configuration Recovery, and
+                Recovery Testing</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>37</span>Monitoring Jenkins with Metrics, Logs, Health
+              Checks, Audit Trails, Queue Telemetry, and Observability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson1.html"
+                ><span>01</span>Monitoring Jenkins with Metrics, Logs, Health
+                Checks, Audit Trails, Queue Telemetry, and Observability:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson2.html"
+                ><span>02</span>Monitoring Jenkins with Metrics, Logs, Health
+                Checks, Audit Trails, Queue Telemetry, and Observability: Guided
+                Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson3.html"
+                ><span>03</span>Monitoring Jenkins with Metrics, Logs, Health
+                Checks, Audit Trails, Queue Telemetry, and Observability:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson4.html"
+                ><span>04</span>Monitoring Jenkins with Metrics, Logs, Health
+                Checks, Audit Trails, Queue Telemetry, and Observability:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Monitoring Jenkins with
+                Metrics, Logs, Health Checks, Audit Trails, Queue Telemetry, and
+                Observability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>38</span>Performance Engineering: Executors, Queueing, Heap,
+              Garbage Collection, Disk I/O, Workspaces, and Controller Load
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson1.html"
+                ><span>01</span>Performance Engineering: Executors, Queueing,
+                Heap, Garbage Collection, Disk I/O, Workspaces, and Controller
+                Load: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson2.html"
+                ><span>02</span>Performance Engineering: Executors, Queueing,
+                Heap, Garbage Collection, Disk I/O, Workspaces, and Controller
+                Load: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson3.html"
+                ><span>03</span>Performance Engineering: Executors, Queueing,
+                Heap, Garbage Collection, Disk I/O, Workspaces, and Controller
+                Load: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson4.html"
+                ><span>04</span>Performance Engineering: Executors, Queueing,
+                Heap, Garbage Collection, Disk I/O, Workspaces, and Controller
+                Load: Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Performance Engineering:
+                Executors, Queueing, Heap, Garbage Collection, Disk I/O,
+                Workspaces, and Controller Load</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>39</span>LTS Upgrades, Java Runtime Transitions, Plugin
+              Upgrade Strategy, Compatibility Testing, and Rollback Planning
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson1.html"
+                ><span>01</span>LTS Upgrades, Java Runtime Transitions, Plugin
+                Upgrade Strategy, Compatibility Testing, and Rollback Planning:
+                Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson2.html"
+                ><span>02</span>LTS Upgrades, Java Runtime Transitions, Plugin
+                Upgrade Strategy, Compatibility Testing, and Rollback Planning:
+                Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson3.html"
+                ><span>03</span>LTS Upgrades, Java Runtime Transitions, Plugin
+                Upgrade Strategy, Compatibility Testing, and Rollback Planning:
+                Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson4.html"
+                ><span>04</span>LTS Upgrades, Java Runtime Transitions, Plugin
+                Upgrade Strategy, Compatibility Testing, and Rollback Planning:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — LTS Upgrades, Java Runtime
+                Transitions, Plugin Upgrade Strategy, Compatibility Testing, and
+                Rollback Planning</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>40</span>Production Troubleshooting: Thread Dumps, Support
+              Bundles, Stuck Builds, Agent Failures, and Incident Playbooks
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson1.html"
+                ><span>01</span>Production Troubleshooting: Thread Dumps,
+                Support Bundles, Stuck Builds, Agent Failures, and Incident
+                Playbooks: Concepts, Architecture, and Mental Model</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson2.html"
+                ><span>02</span>Production Troubleshooting: Thread Dumps,
+                Support Bundles, Stuck Builds, Agent Failures, and Incident
+                Playbooks: Guided Hands-On Workflow and Core Operations</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson3.html"
+                ><span>03</span>Production Troubleshooting: Thread Dumps,
+                Support Bundles, Stuck Builds, Agent Failures, and Incident
+                Playbooks: Configuration, Design Choices, and Tradeoffs</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson4.html"
+                ><span>04</span>Production Troubleshooting: Thread Dumps,
+                Support Bundles, Stuck Builds, Agent Failures, and Incident
+                Playbooks: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Production Troubleshooting:
+                Thread Dumps, Support Bundles, Stuck Builds, Agent Failures, and
+                Incident Playbooks</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>41</span>Production Capstone: Design, Automate, Secure,
+              Scale, Upgrade, and Recover an Enterprise Jenkins Platform
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson1.html"
+                ><span>01</span>Production Capstone: Design, Automate, Secure,
+                Scale, Upgrade, and Recover an Enterprise Jenkins Platform:
+                Requirements, Constraints, and Target Architecture</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson2.html"
+                ><span>02</span>Production Capstone: Design, Automate, Secure,
+                Scale, Upgrade, and Recover an Enterprise Jenkins Platform:
+                Implementation and Automation Build-Out</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson3.html"
+                ><span>03</span>Production Capstone: Design, Automate, Secure,
+                Scale, Upgrade, and Recover an Enterprise Jenkins Platform:
+                Security, Governance, and Reliability Validation</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson4.html"
+                ><span>04</span>Production Capstone: Design, Automate, Secure,
+                Scale, Upgrade, and Recover an Enterprise Jenkins Platform:
+                Failure Injection, Troubleshooting, and Recovery Drill</a
+              ><a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson5.html"
+                ><span>05</span>Production Capstone: Design, Automate, Secure,
+                Scale, Upgrade, and Recover an Enterprise Jenkins Platform:
+                Final Operational Review and Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Jenkins</a><span>/</span
+          ><span>Chapter 38</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 38</span><i></i><span>Lesson 05</span><i></i
+            ><span>~260 minutes</span>
+          </div>
+          <h1>
+            Checkpoint Lab — Performance Engineering: Executors, Queueing, Heap,
+            Garbage Collection, Disk I/O, Workspaces, and Controller Load
+          </h1>
+          <p>
+            Prove or reject one Jenkins performance hypothesis with a repeatable
+            workload, matched evidence, one controlled change, and an explicit
+            report of both latency and resource consequences.
+          </p>
+          <div class="lesson-tags">
+            <span>checkpoint</span><span>experiment</span
+            ><span>evidence packet</span><span>hypothesis</span
+            ><span>verification</span><span>Chapter 39 bridge</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Produce a reproducible baseline with controller/job/source/agent
+              identity.
+            </li>
+            <li>
+              Measure queue, executor, JVM, disk/workspace, Pipeline and
+              external-latency evidence.
+            </li>
+            <li>Predict at least two state/resource changes before tuning.</li>
+            <li>
+              Change exactly one performance variable and rerun the same
+              workload.
+            </li>
+            <li>
+              Report whether end-to-end latency and resource use improved,
+              regressed or merely shifted.
+            </li>
+            <li>
+              Preserve a safe evidence packet and roll back the lab cleanly.
+            </li>
+          </ul>
+        </section>
+        <aside class="callout">
+          <strong>Dated lab baseline — 17 September 2026.</strong> The mandatory
+          path assumes Jenkins LTS <strong>2.568.3</strong> with Java
+          <strong>21</strong> for controller and agent JVMs. Jenkins 2.555.1 and
+          newer requires Java 21 or 25 for Jenkins itself; application build
+          JDKs may differ. Optional measurement examples use Metrics
+          <strong>4.2.37-494.v06f9a_939d33a_</strong> and Prometheus metrics
+          <strong>860.v532442b_44e9a_</strong>. Current Pipeline internals
+          referenced in the explanations include Pipeline: Groovy
+          <strong>4383.v04fa_a_3d67b_d9</strong> and Pipeline: Supporting APIs
+          <strong>1015.v785e5a_b_b_8b_22</strong>. Treat these as dated
+          reproducibility assumptions, not evergreen “latest” claims. Re-check
+          Jenkins/plugin security advisories and minimum-core requirements
+          before production use.
+        </aside>
+        <section id="mission">
+          <h2>1. Mission</h2>
+          <p>
+            You are given the disposable
+            <code>jenkins-perf-lab</code> controller and the bounded workload
+            from Lesson 2. Your goal is <strong>not</strong> to make the best
+            benchmark number. Your goal is to demonstrate a defensible
+            performance-engineering method.
+          </p>
+          <p>
+            The checkpoint is complete only when another engineer can reproduce
+            your baseline, understand your bottleneck hypothesis, identify the
+            one variable you changed, and verify from evidence whether that
+            change improved the intended service objective.
+          </p>
+        </section>
+        <section id="rules">
+          <h2>2. Safety and experiment rules</h2>
+          <ul>
+            <li>
+              Use only the disposable local controller/agent and synthetic
+              repository/data.
+            </li>
+            <li>Keep the built-in/controller node at 0 executors.</li>
+            <li>
+              Use at most four concurrently triggered builds, two agent
+              executors and two Pipeline branches.
+            </li>
+            <li>
+              No production SCM, artifact repository, cloud, Kubernetes, IdP or
+              secret is required.
+            </li>
+            <li>Do not disable Jenkins security controls.</li>
+            <li>
+              Do not create unbounded logs, files, threads, loops or parallel
+              branches.
+            </li>
+            <li>
+              Do not delete evidence before the comparison report is complete.
+            </li>
+            <li>
+              Thread/heap/support diagnostics, if used, remain restricted and
+              are not placed in the public evidence packet.
+            </li>
+          </ul>
+        </section>
+        <section id="preflight">
+          <h2>3. Record controller, job, source and execution identity</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Identity</th>
+                  <th>Record</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Controller</td>
+                  <td>
+                    URL/instance name, Jenkins 2.568.3, Java runtime, UTC start.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Plugins</td>
+                  <td>
+                    Metrics/Prometheus versions if used; Pipeline plugin
+                    versions relevant to the run.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Job</td>
+                  <td>
+                    Full name <code>perf-lab/bounded-workload</code> and exact
+                    job configuration owner/source.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Source</td>
+                  <td>
+                    Jenkinsfile/source commit SHA or immutable training
+                    revision.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Agent</td>
+                  <td>
+                    <code>perf-agent-01</code>, labels, executor count,
+                    OS/arch/Java, base image if containerized.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Workspace</td>
+                  <td>
+                    Exact workspace path recorded from the build; do not assume
+                    it.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Toolchain</td>
+                  <td>
+                    Shell/Python/build tools used by the synthetic workload.
+                  </td>
+                </tr>
+                <tr>
+                  <td>External dependency</td>
+                  <td>
+                    Explicitly local/mock only, including configured delay if
+                    any.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="predictions">
+          <h2>4. Write predictions before changing anything</h2>
+          <p>Required prediction format:</p>
+          <div class="code-block">
+            <pre><code class="language-text">Prediction A (baseline state)
+If four identical builds arrive while perf-agent-01 has one executor,
+then at least three queue items should wait initially, and queue reasons should
+identify eligible-capacity pressure rather than controller failure.
+
+Prediction B (candidate change)
+If the measured bottleneck is eligible execution capacity AND agent/controller
+resource headroom exists, adding exactly one executor or one disposable agent
+should reduce queue wait. Per-build duration and controller load should remain
+within the baseline confidence range. If they worsen materially, reject the change.</code></pre>
+          </div>
+          <p>
+            You may choose a different bottleneck and prediction, but it must be
+            based on evidence and include a falsification condition.
+          </p>
+        </section>
+        <section id="baseline">
+          <h2>5. Run the baseline workload</h2>
+          <ol>
+            <li>
+              Ensure the lab starts from the documented baseline: one eligible
+              agent executor, serial workload mode, same source revision and
+              cache state.
+            </li>
+            <li>Trigger exactly four builds.</li>
+            <li>Capture queue snapshots through queue-to-build transitions.</li>
+            <li>Capture node/executor snapshots and optional metrics.</li>
+            <li>
+              Record build start/end, stage timing, workspace size,
+              console/artifact sizes and external mock latency.
+            </li>
+            <li>
+              Repeat the baseline at least twice if practical so one anomalous
+              run does not define the conclusion.
+            </li>
+          </ol>
+        </section>
+        <section id="packet-before">
+          <h2>6. Baseline evidence packet</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Evidence group</th>
+                  <th>Required fields</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Controller/JVM</td>
+                  <td>
+                    CPU or load evidence available to lab, heap/GC observations,
+                    relevant thread count/health, controller disk use/latency
+                    where available.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Queue</td>
+                  <td>
+                    queue item IDs, enqueue time, reason, build allocation/start
+                    time, calculated wait.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Executors/agents</td>
+                  <td>
+                    eligible node, executor count, busy/idle observations,
+                    online state, labels.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Build/Pipeline</td>
+                  <td>
+                    build numbers/URLs/results, stage/step durations, Pipeline
+                    mode/branch count.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Workspace/storage</td>
+                  <td>
+                    workspace path and size, largest generated files/cache
+                    class, artifact/report/log bytes.
+                  </td>
+                </tr>
+                <tr>
+                  <td>External</td>
+                  <td>mock dependency latency/status or explicit “none”.</td>
+                </tr>
+                <tr>
+                  <td>Identity</td>
+                  <td>
+                    source SHA, Jenkinsfile/library refs, plugin/tool/runtime
+                    versions.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Security</td>
+                  <td>
+                    confirmation that no credential/secret or sensitive dump is
+                    in shareable evidence.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="hypothesis">
+          <h2>7. State one bottleneck hypothesis</h2>
+          <p>Your hypothesis must quote measurements. Examples:</p>
+          <div class="code-block">
+            <pre><code class="language-text">Example 1 — eligible capacity
+p95 queue wait = 145 s; perf-agent-01 single executor is continuously busy;
+agent CPU peaks 45%, disk latency stays low, controller CPU/GC normal.
+Hypothesis: eligible executor capacity is the dominant bottleneck.
+
+Example 2 — agent I/O
+queue wait &lt; 5 s; build execution = 190 s; workspace write latency and iowait
+rise during perf-data generation; controller CPU/GC normal.
+Hypothesis: agent workspace storage is the dominant bottleneck.
+
+Example 3 — controller/Pipeline
+queue wait low; agent work &lt; 20 s; controller CPU and Pipeline step persistence
+spike during thousands of tiny steps; build completion waits on orchestration.
+Hypothesis: Pipeline/controller orchestration is the dominant bottleneck.</code></pre>
+          </div>
+        </section>
+        <section id="change">
+          <h2>8. Change exactly one variable</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hypothesis</th>
+                  <th>Allowed checkpoint change</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Eligible capacity</td>
+                  <td>
+                    Increase the disposable agent from 1 to 2 executors
+                    <em>or</em> add one equally configured disposable agent—not
+                    both.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Agent I/O</td>
+                  <td>
+                    Move only the disposable workspace/data path to a faster
+                    local lab filesystem or reduce one bounded I/O source.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Console/evidence volume</td>
+                  <td>
+                    Reduce synthetic console verbosity while preserving the same
+                    detailed file evidence.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Pipeline/CPS overhead</td>
+                  <td>
+                    Replace one controller-side Groovy computation with one
+                    agent-side script while keeping functional result identical.
+                  </td>
+                </tr>
+                <tr>
+                  <td>Controller heap genuinely undersized</td>
+                  <td>
+                    Apply one modest JVM heap change only after proving host
+                    headroom/live-set need; document restart and rollback.
+                  </td>
+                </tr>
+                <tr>
+                  <td>External mock latency</td>
+                  <td>
+                    Change one local dependency/cache/timeout behavior; do not
+                    add Jenkins concurrency.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p>
+            Do not alter source revision, tool versions, agent image, cache
+            state and executor count simultaneously. If multiple conditions must
+            change, this checkpoint cannot attribute causality.
+          </p>
+        </section>
+        <section id="rerun">
+          <h2>9. Rerun the identical workload</h2>
+          <p>
+            Trigger the same number of builds with the same
+            job/source/parameters and collect the same evidence fields. Record
+            the exact change timestamp so the before/after sets cannot be mixed.
+          </p>
+        </section>
+        <section id="compare">
+          <h2>10. Compare outcome and resource cost</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Before</th>
+                  <th>After</th>
+                  <th>Direction</th>
+                  <th>Interpretation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Median / p95 queue wait</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Was scheduling delay affected?</td>
+                </tr>
+                <tr>
+                  <td>Median build duration</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Did execution time change?</td>
+                </tr>
+                <tr>
+                  <td>Batch makespan / end-to-end</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Did user-visible throughput/latency improve?</td>
+                </tr>
+                <tr>
+                  <td>Controller CPU/heap/GC</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Did the change shift work onto controller?</td>
+                </tr>
+                <tr>
+                  <td>Agent CPU/memory/I/O</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Did concurrency create contention?</td>
+                </tr>
+                <tr>
+                  <td>Workspace/log/artifact volume</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Did storage/retention cost change?</td>
+                </tr>
+                <tr>
+                  <td>External/mock latency</td>
+                  <td>fill</td>
+                  <td>fill</td>
+                  <td>better/same/worse</td>
+                  <td>Was external behavior held constant?</td>
+                </tr>
+                <tr>
+                  <td>Recovery/durability semantics</td>
+                  <td>same/change</td>
+                  <td>same/change</td>
+                  <td>n/a</td>
+                  <td>Did any tuning alter restart survivability?</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="decision">
+          <h2>11. Accept, reject or classify as inconclusive</h2>
+          <p>Use one of these outcomes:</p>
+          <ul>
+            <li>
+              <strong>Accept:</strong> the intended SLI improved and
+              resource/reliability costs remain within documented bounds.
+            </li>
+            <li>
+              <strong>Reject:</strong> the intended metric did not improve,
+              another important metric regressed, or the change introduced
+              unacceptable reliability/security cost.
+            </li>
+            <li>
+              <strong>Inconclusive:</strong> workload/cache/environment changed,
+              measurements are too noisy, or the evidence does not isolate the
+              variable. Rebuild the experiment rather than inventing a
+              conclusion.
+            </li>
+          </ul>
+        </section>
+        <section id="report">
+          <h2>12. Required performance report</h2>
+          <div class="code-block">
+            <pre><code class="language-text">Performance checkpoint report
+=============================
+Controller/core/Java/plugins:
+Job/source/Jenkinsfile revision:
+Agent/image/tools/executors:
+Baseline workload definition:
+Baseline run IDs / queue IDs:
+Baseline measurements:
+Bottleneck hypothesis:
+Competing hypothesis:
+Single controlled change:
+After-change run IDs / queue IDs:
+After-change measurements:
+End-to-end result:
+Controller resource result:
+Agent/storage result:
+Durability/reliability impact:
+Decision: ACCEPT / REJECT / INCONCLUSIVE
+Rollback performed or retained change:
+Known limitations:
+Evidence paths / redaction review:</code></pre>
+          </div>
+        </section>
+        <section id="verify">
+          <h2>13. Verification checklist</h2>
+          <ul>
+            <li>
+              Exactly five chapter files aside, the lab modified no shared
+              Academy/course resources.
+            </li>
+            <li>Controller built-in executors stayed at 0.</li>
+            <li>
+              At least two predicted state/resource changes were written before
+              the tuning change.
+            </li>
+            <li>
+              Baseline and post-change runs used the same source, toolchain and
+              bounded workload.
+            </li>
+            <li>Queue wait was not confused with build duration.</li>
+            <li>Controller and agent resource costs were both considered.</li>
+            <li>
+              Workspace/log/artifact volume and external latency were explicit.
+            </li>
+            <li>Only one tuning variable changed.</li>
+            <li>
+              First-failure/slow evidence was preserved before cleanup or retry.
+            </li>
+            <li>
+              The final conclusion can be rejected by the recorded measurements
+              if the hypothesis was wrong.
+            </li>
+            <li>
+              No secret, token, private key, heap dump or sensitive support
+              bundle is in shareable evidence.
+            </li>
+          </ul>
+        </section>
+        <section id="cleanup">
+          <h2>14. Cleanup and rollback</h2>
+          <p>
+            If the experiment changed executor count, heap, Pipeline durability,
+            workspace location or any other lab setting, either restore the
+            documented baseline or explicitly record why the accepted change
+            remains. Dispose of the controller/agent and remove only exact
+            temporary paths.
+          </p>
+          <div class="code-block">
+            <pre><code class="language-bash">set -euo pipefail
+OUT=&#x27;/tmp/jenkins-perf-lab-evidence&#x27;
+case &quot;$OUT&quot; in
+  /tmp/jenkins-perf-lab-evidence) rm -rf -- &quot;$OUT&quot; ;;
+  *) echo &#x27;refusing unexpected cleanup path&#x27; &gt;&amp;2; exit 70 ;;
+esac</code></pre>
+          </div>
+        </section>
+        <section id="production">
+          <h2>
+            15. What Chapter 38 adds to a production Jenkins operating model
+          </h2>
+          <p>
+            Chapter 37 established how to observe Jenkins. Chapter 38 converts
+            that telemetry into controlled engineering decisions. You can now
+            distinguish queue/eligibility from executor saturation,
+            controller/JVM pressure from agent execution, CPS persistence from
+            project computation, and local storage from external-service
+            latency. More importantly, you can prove whether a change helped
+            rather than relying on intuition.
+          </p>
+          <p>
+            Chapter 39 builds directly on this discipline for LTS, Java and
+            plugin upgrades: performance baselines become part of compatibility
+            testing, and rollback planning must preserve both correctness and
+            service behavior.
+          </p>
+        </section>
+        <section class="next-concepts">
+          <span>Next chapter</span>
+          <h3>
+            Chapter 39 — LTS Upgrades, Java Runtime Transitions, Plugin Upgrade
+            Strategy, Compatibility Testing, and Rollback Planning
+          </h3>
+          <p>
+            Carry the verified evidence and operating discipline from this
+            chapter into the next chapter.
+          </p>
+        </section>
+
+        <section id="knowledge">
+          <h2>Knowledge check</h2>
+          <p>Answer before revealing the explanation.</p>
+          <div class="quiz-list">
+            <div class="quiz-card">
+              <p>
+                <strong
+                  >1. What makes a performance checkpoint reproducible?</strong
+                >
+              </p>
+              <button aria-expanded="false" data-reveal-answer="" type="button">
+                Reveal answer
+              </button>
+              <div class="quiz-answer" hidden="">
+                <p>
+                  Exact controller/plugin/tool/source/agent identity, a bounded
+                  workload, the same measurements, and one controlled variable
+                  between comparable runs.
+                </p>
+              </div>
+            </div>
+            <div class="quiz-card">
+              <p>
+                <strong>2. When should a result be called inconclusive?</strong>
+              </p>
+              <button aria-expanded="false" data-reveal-answer="" type="button">
+                Reveal answer
+              </button>
+              <div class="quiz-answer" hidden="">
+                <p>
+                  When environment/workload/cache changed, measurements are too
+                  noisy, or the experiment cannot isolate the intended variable.
+                </p>
+              </div>
+            </div>
+            <div class="quiz-card">
+              <p>
+                <strong>
+                  3. Why compare batch makespan as well as per-build duration?
+                </strong>
+              </p>
+              <button aria-expanded="false" data-reveal-answer="" type="button">
+                Reveal answer
+              </button>
+              <div class="quiz-answer" hidden="">
+                <p>
+                  A concurrency change may make individual jobs faster or slower
+                  while changing overall throughput/queueing differently.
+                </p>
+              </div>
+            </div>
+            <div class="quiz-card">
+              <p>
+                <strong>
+                  4. What should happen if queue wait improves but controller
+                  GC/resource cost becomes unacceptable?
+                </strong>
+              </p>
+              <button aria-expanded="false" data-reveal-answer="" type="button">
+                Reveal answer
+              </button>
+              <div class="quiz-answer" hidden="">
+                <p>
+                  Reject or redesign the change; optimization must include
+                  platform reliability/resource objectives, not one metric.
+                </p>
+              </div>
+            </div>
+            <div class="quiz-card">
+              <p>
+                <strong>5. How does this chapter prepare for upgrades?</strong>
+              </p>
+              <button aria-expanded="false" data-reveal-answer="" type="button">
+                Reveal answer
+              </button>
+              <div class="quiz-answer" hidden="">
+                <p>
+                  It provides a measured performance baseline and comparison
+                  method that can be rerun before/after Jenkins, Java or plugin
+                  changes in Chapter 39.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+        <nav aria-label="Lesson navigation" class="lesson-pagination">
+          <a class="lesson-pagination-link prev" href="Lesson4.html"
+            >Previous lesson</a
+          ><a class="lesson-pagination-link course" href="../index.html"
+            >Course curriculum</a
+          ><a
+            class="lesson-pagination-link next"
+            href="../Chapter39/Lesson1.html"
+            >Next lesson</a
+          >
+        </nav>
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <p>
+            Performance behavior depends on controller scale, workload shape,
+            storage, plugins and runtime versions. Re-check current primary
+            documentation before applying any tuning change to a real
+            controller.
+          </p>
+          <ul>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/scaling/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Scaling Jenkins</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/scaling/hardware-recommendations/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Hardware Recommendations</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/scaling/architecting-for-scale/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Architecting for Scale</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/pipeline/scaling-pipeline/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Scaling Pipelines / durability</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/pipeline/pipeline-best-practices/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Pipeline Best Practices</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/using/using-agents/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Using agents</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/managing/nodes/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Managing nodes</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/doc/book/platform-information/support-policy-java/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins — Java Support Policy</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://plugins.jenkins.io/metrics/"
+                rel="noopener"
+                target="_blank"
+                >Metrics plugin</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://plugins.jenkins.io/prometheus/"
+                rel="noopener"
+                target="_blank"
+                >Prometheus metrics plugin</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://plugins.jenkins.io/workflow-cps/"
+                rel="noopener"
+                target="_blank"
+                >Pipeline: Groovy plugin</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://plugins.jenkins.io/workflow-support/"
+                rel="noopener"
+                target="_blank"
+                >Pipeline: Supporting APIs plugin</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/changelog-stable/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins LTS changelog</a
+              >
+            </li>
+            <li>
+              <a
+                href="https://www.jenkins.io/security/advisories/"
+                rel="noopener"
+                target="_blank"
+                >Jenkins Security Advisories</a
+              >
+            </li>
+          </ul>
+        </section>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              ><a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              ><a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              ><a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              ><a
+                href="https://mohammadijoo.github.io/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            ><button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span></button
+            ><small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+    <script data-jenkins-toc-unnumbered="">
+      (() => {
+        const toc = document.querySelector("[data-on-page-toc]");
+        if (!toc) return;
+        const strip = (label) =>
+          label.replace(
+            /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+            "",
+          );
+        const normalize = () =>
+          toc.querySelectorAll("a").forEach((link) => {
+            const cleaned = strip(link.textContent);
+            if (cleaned !== link.textContent) link.textContent = cleaned;
+          });
+        normalize();
+        const observer = new MutationObserver(normalize);
+        observer.observe(toc, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      })();
+    </script>
+  </body>
+</html>
