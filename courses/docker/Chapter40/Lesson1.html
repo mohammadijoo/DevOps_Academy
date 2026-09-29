@@ -1,0 +1,3249 @@
+<!doctype html>
+
+<html data-theme="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1" name="viewport" />
+    <meta
+      content="Build a measurement-first Docker performance model across build context/cache, image transfer/unpack, startup, CPU/memory, storage, networking, and host saturation."
+      name="description"
+    />
+    <meta content="Abolfazl Mohammadijoo" name="author" />
+    <meta content="dark light" name="color-scheme" />
+    <meta content="#07090d" name="theme-color" />
+    <title>
+      Docker Performance Engineering: Build Speed, Image Size, Runtime Overhead,
+      Network, Storage, and Resource Profiling: Concepts, Architecture, and
+      Mental Model | Docker Complete Course | DevOps Academy
+    </title>
+    <link
+      href="../../../assets/icons/favicon.svg"
+      rel="icon"
+      type="image/svg+xml"
+    />
+    <link href="../../../assets/css/styles.css" rel="stylesheet" />
+    <script>
+      try {
+        const t = localStorage.getItem("devops-academy-theme");
+        if (t) document.documentElement.dataset.theme = t;
+        else if (matchMedia("(prefers-color-scheme: light)").matches)
+          document.documentElement.dataset.theme = "light";
+      } catch (e) {}
+    </script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github-dark.min.css"
+      id="hljs-theme-dark"
+      rel="stylesheet"
+    />
+    <link
+      disabled=""
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/github.min.css"
+      id="hljs-theme-light"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../assets/css/docker-code.css" />
+    <script
+      defer=""
+      src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/powershell.min.js"
+    ></script>
+    <script
+      defer=""
+      src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/dockerfile.min.js"
+    ></script>
+    <script defer="" src="../../../assets/js/highlight-git.js"></script>
+    <script defer="" src="../assets/js/highlight-docker.js"></script>
+    <style id="docker-course-table-styles">
+      .lesson-article .table-wrap {
+        width: 100%;
+        margin: 24px 0;
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--surface);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--muted-2) transparent;
+      }
+      .lesson-article .table-wrap table {
+        width: 100%;
+        min-width: 680px;
+        margin: 0;
+        border: 0;
+        border-collapse: separate;
+        border-spacing: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      .lesson-article .table-wrap thead th {
+        padding: 13px 16px;
+        background: var(--surface-3);
+        color: var(--text);
+        font: 700 11px/1.35 var(--mono);
+        letter-spacing: 0.055em;
+        text-align: left;
+        text-transform: uppercase;
+        vertical-align: bottom;
+        border-bottom: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody td {
+        padding: 13px 16px;
+        color: var(--muted);
+        text-align: left;
+        vertical-align: top;
+        border-top: 1px solid var(--line);
+      }
+      .lesson-article .table-wrap tbody tr:first-child td {
+        border-top: 0;
+      }
+      .lesson-article .table-wrap tbody tr:hover {
+        background: rgba(120, 245, 199, 0.035);
+      }
+      .lesson-article .table-wrap th,
+      .lesson-article .table-wrap td {
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .table-wrap td strong {
+        color: var(--text);
+      }
+      .lesson-article .table-wrap code {
+        white-space: normal;
+        overflow-wrap: anywhere;
+      }
+      .lesson-article .callout {
+        color: var(--muted) !important;
+        font-size: 13px;
+        line-height: 1.75;
+        border-left: 3px solid var(--accent-2) !important;
+        background: rgba(141, 162, 255, 0.055) !important;
+        border-radius: 0 10px 10px 0 !important;
+        padding: 16px 18px !important;
+        margin: 24px 0 !important;
+      }
+      .lesson-article > section.callout {
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+      }
+      .lesson-article .callout.warning {
+        border-left-color: var(--warning) !important;
+        background: rgba(255, 212, 121, 0.055) !important;
+      }
+      .lesson-article .callout strong {
+        color: var(--text);
+      }
+      .lesson-article .lesson-objectives {
+        border: 1px solid rgba(120, 245, 199, 0.18) !important;
+        border-radius: 18px !important;
+        background: linear-gradient(
+          135deg,
+          rgba(120, 245, 199, 0.045),
+          transparent
+        ) !important;
+        padding: 28px !important;
+        margin-top: 45px !important;
+      }
+      .lesson-article .lesson-objectives > h2:first-child {
+        margin-top: 0 !important;
+        color: var(--accent) !important;
+        font: 700 12px/1.2 var(--mono) !important;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .lesson-article .lesson-objectives ul {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px 30px;
+        margin: 22px 0 0 !important;
+        padding: 0 !important;
+        list-style: none !important;
+      }
+      .lesson-article .lesson-objectives li {
+        position: relative;
+        padding-left: 22px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .lesson-article .lesson-objectives li::before {
+        content: "✓";
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-weight: 800;
+      }
+      .lesson-article .diagram-card {
+        position: relative;
+        overflow: hidden;
+      }
+      .lesson-article .diagram-card > .diagram-label {
+        min-height: 55px;
+        display: flex;
+        align-items: center;
+        padding: 12px 190px 12px 16px !important;
+        border-bottom: 1px solid var(--line);
+        color: var(--muted);
+        font: 700 9px/1.35 var(--mono);
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+      }
+      .lesson-article
+        .diagram-card.devops-mermaid-export-host
+        > .devops-mermaid-export-controls {
+        top: 8px !important;
+        right: 10px !important;
+      }
+      .lesson-article .next-concepts {
+        margin-top: 28px !important;
+        border: 1px solid var(--line) !important;
+        border-radius: 15px !important;
+        padding: 22px !important;
+        background: linear-gradient(
+          135deg,
+          var(--surface),
+          transparent
+        ) !important;
+      }
+      .lesson-article .next-concepts > span:first-child {
+        display: block;
+        font: 700 9px/1.2 var(--mono) !important;
+        color: var(--accent) !important;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .lesson-article .next-concepts h3 {
+        margin: 14px 0 6px !important;
+        color: var(--text) !important;
+      }
+      .lesson-article .next-concepts p {
+        margin: 0 !important;
+        color: var(--muted) !important;
+        font-size: 12px !important;
+      }
+      .lesson-article #references p,
+      .lesson-article #references li {
+        color: var(--text) !important;
+        font-size: 14px !important;
+        line-height: 1.75 !important;
+      }
+      .lesson-article #references a {
+        color: var(--text) !important;
+      }
+      .lesson-article .evidence-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin: 22px 0;
+      }
+      .lesson-article .evidence-card {
+        border: 1px solid var(--line);
+        border-radius: 13px;
+        background: var(--surface);
+        padding: 16px;
+      }
+      .lesson-article .evidence-card strong {
+        display: block;
+        color: var(--text);
+        margin-bottom: 7px;
+      }
+      .lesson-article .evidence-card p {
+        margin: 0;
+        font-size: 13px;
+      }
+      .lesson-article .mini-checklist {
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        padding: 18px;
+        margin: 20px 0;
+        background: rgba(255, 255, 255, 0.018);
+      }
+      .lesson-article .mini-checklist strong {
+        color: var(--accent);
+      }
+      @media (max-width: 760px) {
+        .lesson-article .lesson-objectives ul {
+          grid-template-columns: 1fr;
+        }
+        .lesson-article .table-wrap table {
+          min-width: 560px;
+          font-size: 12px;
+        }
+      }
+      @media (max-width: 600px) {
+        .lesson-article .diagram-card > .diagram-label {
+          min-height: auto;
+          padding-right: 16px !important;
+        }
+        .lesson-article
+          .diagram-card.devops-mermaid-export-host
+          > .devops-mermaid-export-controls {
+          position: static !important;
+          display: flex !important;
+          padding: 10px 12px !important;
+          border-bottom: 1px solid var(--line);
+          background: var(--surface-2);
+        }
+      }
+    </style>
+    <style data-docker-overflow-guard="">
+      body.lesson-page .lesson-shell,
+      body.lesson-page .lesson-article,
+      body.lesson-page .on-page-toc {
+        min-width: 0;
+      }
+      body.lesson-page .lesson-article h1,
+      body.lesson-page .lesson-article h2,
+      body.lesson-page .lesson-article h3,
+      body.lesson-page .lesson-article p,
+      body.lesson-page .lesson-article li,
+      body.lesson-page .lesson-article dt,
+      body.lesson-page .lesson-article dd,
+      body.lesson-page .lesson-article blockquote {
+        overflow-wrap: anywhere;
+      }
+      body.lesson-page .lesson-article p code,
+      body.lesson-page .lesson-article li code {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      body.lesson-page .lesson-article .mermaid {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      body.lesson-page .lesson-article .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+      /* docker-course-overflow-hardening */
+      body.lesson-page .course-sidebar,
+      body.lesson-page .sidebar-curriculum,
+      body.lesson-page .sidebar-lesson,
+      body.lesson-page .lesson-header,
+      body.lesson-page .lesson-pagination,
+      body.lesson-page .support-panel,
+      body.lesson-page .wallet-card {
+        min-width: 0;
+        max-width: 100%;
+      }
+      body.lesson-page .sidebar-lesson,
+      body.lesson-page .breadcrumbs,
+      body.lesson-page .lesson-pagination a,
+      body.lesson-page .on-page-toc a,
+      body.lesson-page .wallet-card code {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      body.lesson-page .lesson-article pre:not(.mermaid) {
+        max-width: 100%;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body class="lesson-page">
+    <div class="reading-progress" data-reading-progress=""></div>
+    <div aria-hidden="true" class="site-grid"></div>
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header" data-header="">
+      <div class="header-inner">
+        <a
+          aria-label="DevOps Academy home"
+          class="brand"
+          href="../../../index.html"
+        >
+          <span aria-hidden="true" class="brand-mark"><span>&gt;_</span></span>
+          <span class="brand-copy"
+            ><strong>DevOps Academy</strong
+            ><small>Learn the delivery system</small></span
+          >
+        </a>
+        <nav aria-label="Primary navigation" class="desktop-nav">
+          <a href="../../../index.html#roadmap">Roadmap</a>
+          <a class="is-active" href="../../../index.html#courses">Courses</a>
+          <a href="../../../index.html#method">Method</a>
+          <a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+        </nav>
+        <div class="header-actions">
+          <a
+            aria-label="Open GitHub repository"
+            class="icon-button desktop-only"
+            href="https://github.com/mohammadijoo/DevOps_Academy"
+            rel="noopener"
+            target="_blank"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path
+                d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.88c-2.78.6-3.37-1.18-3.37-1.18-.45-1.15-1.11-1.46-1.11-1.46-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.92.83.09-.65.35-1.09.64-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02A9.56 9.56 0 0 1 12 6.82a9.5 9.5 0 0 1 2.5.34c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85V21c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"
+              ></path>
+            </svg>
+          </a>
+          <button
+            aria-label="Toggle color theme"
+            class="icon-button"
+            data-theme-toggle=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path
+                d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"
+              ></path>
+            </svg>
+          </button>
+          <button
+            aria-expanded="false"
+            aria-label="Open navigation"
+            class="icon-button mobile-menu-button"
+            data-mobile-menu-button=""
+            type="button"
+          >
+            <svg aria-hidden="true" viewbox="0 0 24 24">
+              <path d="M4 7h16M4 12h16M4 17h16"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <nav
+        aria-label="Mobile navigation"
+        class="mobile-nav"
+        data-mobile-menu=""
+      >
+        <a href="../../../index.html#roadmap">Roadmap</a
+        ><a class="is-active" href="../../../index.html#courses">Courses</a
+        ><a href="../../../index.html#method">Method</a
+        ><a href="https://github.com/mohammadijoo/DevOps_Academy">GitHub</a>
+      </nav>
+    </header>
+    <main class="lesson-shell" id="main-content">
+      <aside class="course-sidebar" data-course-sidebar="">
+        <div class="sidebar-head">
+          <a href="../index.html"
+            ><span class="course-glyph">DKR</span>
+            <div>
+              <small>Course 16</small><strong>Docker Complete Course</strong>
+            </div></a
+          ><button
+            aria-label="Close course navigation"
+            data-sidebar-close=""
+            type="button"
+          >
+            ×
+          </button>
+        </div>
+        <label class="sidebar-search"
+          ><svg aria-hidden="true" viewbox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <path d="m20 20-4-4"></path></svg
+          ><input
+            data-sidebar-search=""
+            placeholder="Search 210 lessons..."
+            type="search"
+        /></label>
+        <nav aria-label="Docker course curriculum" class="sidebar-curriculum">
+          <details class="sidebar-chapter">
+            <summary>
+              <span>01</span>Containers, Virtual Machines, Linux Isolation, OCI
+              Standards, and Docker Architecture
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson1.html"
+                ><span>01</span>Containers, Virtual Machines, Linux Isolation,
+                OCI Standards, and Docker Architecture: Concepts, Architecture,
+                and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson2.html"
+                ><span>02</span>Containers, Virtual Machines, Linux Isolation,
+                OCI Standards, and Docker Architecture: Guided Hands-On Workflow
+                and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson3.html"
+                ><span>03</span>Containers, Virtual Machines, Linux Isolation,
+                OCI Standards, and Docker Architecture: Configuration, Design
+                Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson4.html"
+                ><span>04</span>Containers, Virtual Machines, Linux Isolation,
+                OCI Standards, and Docker Architecture: Diagnostics, Failure
+                Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter01/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Containers, Virtual Machines,
+                Linux Isolation, OCI Standards, and Docker Architecture</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>02</span>Installing Docker Engine and Desktop, CLI Basics,
+              Daemon Connectivity, Contexts, and Environment Setup
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson1.html"
+                ><span>01</span>Installing Docker Engine and Desktop, CLI
+                Basics, Daemon Connectivity, Contexts, and Environment Setup:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson2.html"
+                ><span>02</span>Installing Docker Engine and Desktop, CLI
+                Basics, Daemon Connectivity, Contexts, and Environment Setup:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson3.html"
+                ><span>03</span>Installing Docker Engine and Desktop, CLI
+                Basics, Daemon Connectivity, Contexts, and Environment Setup:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson4.html"
+                ><span>04</span>Installing Docker Engine and Desktop, CLI
+                Basics, Daemon Connectivity, Contexts, and Environment Setup:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter02/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Installing Docker Engine and
+                Desktop, CLI Basics, Daemon Connectivity, Contexts, and
+                Environment Setup</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>03</span>Docker Engine Components: dockerd, containerd,
+              runc, BuildKit, APIs, and Container Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson1.html"
+                ><span>01</span>Docker Engine Components: dockerd, containerd,
+                runc, BuildKit, APIs, and Container Lifecycle: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson2.html"
+                ><span>02</span>Docker Engine Components: dockerd, containerd,
+                runc, BuildKit, APIs, and Container Lifecycle: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson3.html"
+                ><span>03</span>Docker Engine Components: dockerd, containerd,
+                runc, BuildKit, APIs, and Container Lifecycle: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson4.html"
+                ><span>04</span>Docker Engine Components: dockerd, containerd,
+                runc, BuildKit, APIs, and Container Lifecycle: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter03/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Engine Components:
+                dockerd, containerd, runc, BuildKit, APIs, and Container
+                Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>04</span>Images, Layers, Content-Addressable Storage,
+              Manifests, Config Objects, and Image Identity
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson1.html"
+                ><span>01</span>Images, Layers, Content-Addressable Storage,
+                Manifests, Config Objects, and Image Identity: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson2.html"
+                ><span>02</span>Images, Layers, Content-Addressable Storage,
+                Manifests, Config Objects, and Image Identity: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson3.html"
+                ><span>03</span>Images, Layers, Content-Addressable Storage,
+                Manifests, Config Objects, and Image Identity: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson4.html"
+                ><span>04</span>Images, Layers, Content-Addressable Storage,
+                Manifests, Config Objects, and Image Identity: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter04/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Images, Layers,
+                Content-Addressable Storage, Manifests, Config Objects, and
+                Image Identity</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>05</span>Running Containers: create, run, start, stop,
+              restart, rm, exec, attach, inspect, and Lifecycle State
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson1.html"
+                ><span>01</span>Running Containers: create, run, start, stop,
+                restart, rm, exec, attach, inspect, and Lifecycle State:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson2.html"
+                ><span>02</span>Running Containers: create, run, start, stop,
+                restart, rm, exec, attach, inspect, and Lifecycle State: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson3.html"
+                ><span>03</span>Running Containers: create, run, start, stop,
+                restart, rm, exec, attach, inspect, and Lifecycle State:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson4.html"
+                ><span>04</span>Running Containers: create, run, start, stop,
+                restart, rm, exec, attach, inspect, and Lifecycle State:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter05/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Running Containers: create,
+                run, start, stop, restart, rm, exec, attach, inspect, and
+                Lifecycle State</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>06</span>Container Filesystems, Writable Layers, docker cp,
+              exec Workflows, Processes, Signals, and PID 1
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson1.html"
+                ><span>01</span>Container Filesystems, Writable Layers, docker
+                cp, exec Workflows, Processes, Signals, and PID 1: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson2.html"
+                ><span>02</span>Container Filesystems, Writable Layers, docker
+                cp, exec Workflows, Processes, Signals, and PID 1: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson3.html"
+                ><span>03</span>Container Filesystems, Writable Layers, docker
+                cp, exec Workflows, Processes, Signals, and PID 1:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson4.html"
+                ><span>04</span>Container Filesystems, Writable Layers, docker
+                cp, exec Workflows, Processes, Signals, and PID 1: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter06/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Container Filesystems, Writable
+                Layers, docker cp, exec Workflows, Processes, Signals, and PID
+                1</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>07</span>Dockerfile Fundamentals: FROM, RUN, COPY, ADD,
+              WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson1.html"
+                ><span>01</span>Dockerfile Fundamentals: FROM, RUN, COPY, ADD,
+                WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson2.html"
+                ><span>02</span>Dockerfile Fundamentals: FROM, RUN, COPY, ADD,
+                WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson3.html"
+                ><span>03</span>Dockerfile Fundamentals: FROM, RUN, COPY, ADD,
+                WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson4.html"
+                ><span>04</span>Dockerfile Fundamentals: FROM, RUN, COPY, ADD,
+                WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter07/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Dockerfile Fundamentals: FROM,
+                RUN, COPY, ADD, WORKDIR, ENV, ARG, USER, CMD, and ENTRYPOINT</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>08</span>Build Contexts, .dockerignore, Remote Contexts,
+              Named Contexts, and Deterministic Build Inputs
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson1.html"
+                ><span>01</span>Build Contexts, .dockerignore, Remote Contexts,
+                Named Contexts, and Deterministic Build Inputs: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson2.html"
+                ><span>02</span>Build Contexts, .dockerignore, Remote Contexts,
+                Named Contexts, and Deterministic Build Inputs: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson3.html"
+                ><span>03</span>Build Contexts, .dockerignore, Remote Contexts,
+                Named Contexts, and Deterministic Build Inputs: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson4.html"
+                ><span>04</span>Build Contexts, .dockerignore, Remote Contexts,
+                Named Contexts, and Deterministic Build Inputs: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter08/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Build Contexts, .dockerignore,
+                Remote Contexts, Named Contexts, and Deterministic Build
+                Inputs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>09</span>BuildKit and buildx Architecture, Builders,
+              Frontends, Progress, Outputs, and Modern Build Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson1.html"
+                ><span>01</span>BuildKit and buildx Architecture, Builders,
+                Frontends, Progress, Outputs, and Modern Build Workflows:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson2.html"
+                ><span>02</span>BuildKit and buildx Architecture, Builders,
+                Frontends, Progress, Outputs, and Modern Build Workflows: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson3.html"
+                ><span>03</span>BuildKit and buildx Architecture, Builders,
+                Frontends, Progress, Outputs, and Modern Build Workflows:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson4.html"
+                ><span>04</span>BuildKit and buildx Architecture, Builders,
+                Frontends, Progress, Outputs, and Modern Build Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter09/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — BuildKit and buildx
+                Architecture, Builders, Frontends, Progress, Outputs, and Modern
+                Build Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>10</span>Multi-Stage Builds, Minimal Runtime Images,
+              Distroless Patterns, Debug Stages, and Build Separation
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson1.html"
+                ><span>01</span>Multi-Stage Builds, Minimal Runtime Images,
+                Distroless Patterns, Debug Stages, and Build Separation:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson2.html"
+                ><span>02</span>Multi-Stage Builds, Minimal Runtime Images,
+                Distroless Patterns, Debug Stages, and Build Separation: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson3.html"
+                ><span>03</span>Multi-Stage Builds, Minimal Runtime Images,
+                Distroless Patterns, Debug Stages, and Build Separation:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson4.html"
+                ><span>04</span>Multi-Stage Builds, Minimal Runtime Images,
+                Distroless Patterns, Debug Stages, and Build Separation:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter10/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Multi-Stage Builds, Minimal
+                Runtime Images, Distroless Patterns, Debug Stages, and Build
+                Separation</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>11</span>Build Cache, Cache Mounts, Bind Mounts, Secret
+              Mounts, SSH Mounts, and Cache Import/Export
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson1.html"
+                ><span>01</span>Build Cache, Cache Mounts, Bind Mounts, Secret
+                Mounts, SSH Mounts, and Cache Import/Export: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson2.html"
+                ><span>02</span>Build Cache, Cache Mounts, Bind Mounts, Secret
+                Mounts, SSH Mounts, and Cache Import/Export: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson3.html"
+                ><span>03</span>Build Cache, Cache Mounts, Bind Mounts, Secret
+                Mounts, SSH Mounts, and Cache Import/Export: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson4.html"
+                ><span>04</span>Build Cache, Cache Mounts, Bind Mounts, Secret
+                Mounts, SSH Mounts, and Cache Import/Export: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter11/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Build Cache, Cache Mounts, Bind
+                Mounts, Secret Mounts, SSH Mounts, and Cache Import/Export</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>12</span>Multi-Platform Images, QEMU Emulation, Native
+              Builders, Manifest Lists, and Cross-Architecture Delivery
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson1.html"
+                ><span>01</span>Multi-Platform Images, QEMU Emulation, Native
+                Builders, Manifest Lists, and Cross-Architecture Delivery:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson2.html"
+                ><span>02</span>Multi-Platform Images, QEMU Emulation, Native
+                Builders, Manifest Lists, and Cross-Architecture Delivery:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson3.html"
+                ><span>03</span>Multi-Platform Images, QEMU Emulation, Native
+                Builders, Manifest Lists, and Cross-Architecture Delivery:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson4.html"
+                ><span>04</span>Multi-Platform Images, QEMU Emulation, Native
+                Builders, Manifest Lists, and Cross-Architecture Delivery:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter12/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Multi-Platform Images, QEMU
+                Emulation, Native Builders, Manifest Lists, and
+                Cross-Architecture Delivery</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>13</span>Image Tags, Digests, Mutable vs Immutable
+              References, Pull Policies, Pinning, and Reproducibility
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson1.html"
+                ><span>01</span>Image Tags, Digests, Mutable vs Immutable
+                References, Pull Policies, Pinning, and Reproducibility:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson2.html"
+                ><span>02</span>Image Tags, Digests, Mutable vs Immutable
+                References, Pull Policies, Pinning, and Reproducibility: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson3.html"
+                ><span>03</span>Image Tags, Digests, Mutable vs Immutable
+                References, Pull Policies, Pinning, and Reproducibility:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson4.html"
+                ><span>04</span>Image Tags, Digests, Mutable vs Immutable
+                References, Pull Policies, Pinning, and Reproducibility:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter13/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Image Tags, Digests, Mutable vs
+                Immutable References, Pull Policies, Pinning, and
+                Reproducibility</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>14</span>Registries, Docker Hub, Private Registries,
+              Authentication, Credential Stores, Push/Pull, and Distribution
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson1.html"
+                ><span>01</span>Registries, Docker Hub, Private Registries,
+                Authentication, Credential Stores, Push/Pull, and Distribution:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson2.html"
+                ><span>02</span>Registries, Docker Hub, Private Registries,
+                Authentication, Credential Stores, Push/Pull, and Distribution:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson3.html"
+                ><span>03</span>Registries, Docker Hub, Private Registries,
+                Authentication, Credential Stores, Push/Pull, and Distribution:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson4.html"
+                ><span>04</span>Registries, Docker Hub, Private Registries,
+                Authentication, Credential Stores, Push/Pull, and Distribution:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter14/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Registries, Docker Hub, Private
+                Registries, Authentication, Credential Stores, Push/Pull, and
+                Distribution</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>15</span>Docker Compose Foundations: Services, Images,
+              Builds, Networks, Volumes, Environment, and Project Lifecycle
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson1.html"
+                ><span>01</span>Docker Compose Foundations: Services, Images,
+                Builds, Networks, Volumes, Environment, and Project Lifecycle:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson2.html"
+                ><span>02</span>Docker Compose Foundations: Services, Images,
+                Builds, Networks, Volumes, Environment, and Project Lifecycle:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson3.html"
+                ><span>03</span>Docker Compose Foundations: Services, Images,
+                Builds, Networks, Volumes, Environment, and Project Lifecycle:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson4.html"
+                ><span>04</span>Docker Compose Foundations: Services, Images,
+                Builds, Networks, Volumes, Environment, and Project Lifecycle:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter15/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Compose Foundations:
+                Services, Images, Builds, Networks, Volumes, Environment, and
+                Project Lifecycle</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>16</span>Advanced Compose: Profiles, depends_on, Health
+              Conditions, Overrides, Includes, Watch, and Multi-File Design
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson1.html"
+                ><span>01</span>Advanced Compose: Profiles, depends_on, Health
+                Conditions, Overrides, Includes, Watch, and Multi-File Design:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson2.html"
+                ><span>02</span>Advanced Compose: Profiles, depends_on, Health
+                Conditions, Overrides, Includes, Watch, and Multi-File Design:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson3.html"
+                ><span>03</span>Advanced Compose: Profiles, depends_on, Health
+                Conditions, Overrides, Includes, Watch, and Multi-File Design:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson4.html"
+                ><span>04</span>Advanced Compose: Profiles, depends_on, Health
+                Conditions, Overrides, Includes, Watch, and Multi-File Design:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter16/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Advanced Compose: Profiles,
+                depends_on, Health Conditions, Overrides, Includes, Watch, and
+                Multi-File Design</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>17</span>Container Networking Foundations: Bridge, Host,
+              None, User-Defined Networks, Endpoints, and Namespaces
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson1.html"
+                ><span>01</span>Container Networking Foundations: Bridge, Host,
+                None, User-Defined Networks, Endpoints, and Namespaces:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson2.html"
+                ><span>02</span>Container Networking Foundations: Bridge, Host,
+                None, User-Defined Networks, Endpoints, and Namespaces: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson3.html"
+                ><span>03</span>Container Networking Foundations: Bridge, Host,
+                None, User-Defined Networks, Endpoints, and Namespaces:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson4.html"
+                ><span>04</span>Container Networking Foundations: Bridge, Host,
+                None, User-Defined Networks, Endpoints, and Namespaces:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter17/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Container Networking
+                Foundations: Bridge, Host, None, User-Defined Networks,
+                Endpoints, and Namespaces</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>18</span>Docker DNS, Service Discovery, Aliases, IPv4/IPv6,
+              Custom Subnets, and Multi-Network Applications
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson1.html"
+                ><span>01</span>Docker DNS, Service Discovery, Aliases,
+                IPv4/IPv6, Custom Subnets, and Multi-Network Applications:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson2.html"
+                ><span>02</span>Docker DNS, Service Discovery, Aliases,
+                IPv4/IPv6, Custom Subnets, and Multi-Network Applications:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson3.html"
+                ><span>03</span>Docker DNS, Service Discovery, Aliases,
+                IPv4/IPv6, Custom Subnets, and Multi-Network Applications:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson4.html"
+                ><span>04</span>Docker DNS, Service Discovery, Aliases,
+                IPv4/IPv6, Custom Subnets, and Multi-Network Applications:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter18/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker DNS, Service Discovery,
+                Aliases, IPv4/IPv6, Custom Subnets, and Multi-Network
+                Applications</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>19</span>Port Publishing, NAT, Firewall Interaction, Direct
+              Routing, Host Binding, and Exposure Security
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson1.html"
+                ><span>01</span>Port Publishing, NAT, Firewall Interaction,
+                Direct Routing, Host Binding, and Exposure Security: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson2.html"
+                ><span>02</span>Port Publishing, NAT, Firewall Interaction,
+                Direct Routing, Host Binding, and Exposure Security: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson3.html"
+                ><span>03</span>Port Publishing, NAT, Firewall Interaction,
+                Direct Routing, Host Binding, and Exposure Security:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson4.html"
+                ><span>04</span>Port Publishing, NAT, Firewall Interaction,
+                Direct Routing, Host Binding, and Exposure Security:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter19/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Port Publishing, NAT, Firewall
+                Interaction, Direct Routing, Host Binding, and Exposure
+                Security</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>20</span>Volumes, Named Volumes, Volume Drivers,
+              Backup/Restore, Sharing, and Persistent Data Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson1.html"
+                ><span>01</span>Volumes, Named Volumes, Volume Drivers,
+                Backup/Restore, Sharing, and Persistent Data Patterns: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson2.html"
+                ><span>02</span>Volumes, Named Volumes, Volume Drivers,
+                Backup/Restore, Sharing, and Persistent Data Patterns: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson3.html"
+                ><span>03</span>Volumes, Named Volumes, Volume Drivers,
+                Backup/Restore, Sharing, and Persistent Data Patterns:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson4.html"
+                ><span>04</span>Volumes, Named Volumes, Volume Drivers,
+                Backup/Restore, Sharing, and Persistent Data Patterns:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter20/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Volumes, Named Volumes, Volume
+                Drivers, Backup/Restore, Sharing, and Persistent Data
+                Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>21</span>Bind Mounts, Read-Only Mounts, tmpfs, Mount
+              Propagation, Subpaths, SELinux Labels, and Host Coupling
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson1.html"
+                ><span>01</span>Bind Mounts, Read-Only Mounts, tmpfs, Mount
+                Propagation, Subpaths, SELinux Labels, and Host Coupling:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson2.html"
+                ><span>02</span>Bind Mounts, Read-Only Mounts, tmpfs, Mount
+                Propagation, Subpaths, SELinux Labels, and Host Coupling: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson3.html"
+                ><span>03</span>Bind Mounts, Read-Only Mounts, tmpfs, Mount
+                Propagation, Subpaths, SELinux Labels, and Host Coupling:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson4.html"
+                ><span>04</span>Bind Mounts, Read-Only Mounts, tmpfs, Mount
+                Propagation, Subpaths, SELinux Labels, and Host Coupling:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter21/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Bind Mounts, Read-Only Mounts,
+                tmpfs, Mount Propagation, Subpaths, SELinux Labels, and Host
+                Coupling</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>22</span>CPU, Memory, PIDs, Devices, ulimits, cgroups v2,
+              Reservations, and Container Resource Governance
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson1.html"
+                ><span>01</span>CPU, Memory, PIDs, Devices, ulimits, cgroups v2,
+                Reservations, and Container Resource Governance: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson2.html"
+                ><span>02</span>CPU, Memory, PIDs, Devices, ulimits, cgroups v2,
+                Reservations, and Container Resource Governance: Guided Hands-On
+                Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson3.html"
+                ><span>03</span>CPU, Memory, PIDs, Devices, ulimits, cgroups v2,
+                Reservations, and Container Resource Governance: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson4.html"
+                ><span>04</span>CPU, Memory, PIDs, Devices, ulimits, cgroups v2,
+                Reservations, and Container Resource Governance: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter22/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — CPU, Memory, PIDs, Devices,
+                ulimits, cgroups v2, Reservations, and Container Resource
+                Governance</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>23</span>Logs, Logging Drivers, Rotation, stdout/stderr
+              Contracts, Events, stats, and Container Observability
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson1.html"
+                ><span>01</span>Logs, Logging Drivers, Rotation, stdout/stderr
+                Contracts, Events, stats, and Container Observability: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson2.html"
+                ><span>02</span>Logs, Logging Drivers, Rotation, stdout/stderr
+                Contracts, Events, stats, and Container Observability: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson3.html"
+                ><span>03</span>Logs, Logging Drivers, Rotation, stdout/stderr
+                Contracts, Events, stats, and Container Observability:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson4.html"
+                ><span>04</span>Logs, Logging Drivers, Rotation, stdout/stderr
+                Contracts, Events, stats, and Container Observability:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter23/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Logs, Logging Drivers,
+                Rotation, stdout/stderr Contracts, Events, stats, and Container
+                Observability</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>24</span>Health Checks, Restart Policies, Dependency Health,
+              Graceful Shutdown, Signals, and Self-Healing Patterns
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson1.html"
+                ><span>01</span>Health Checks, Restart Policies, Dependency
+                Health, Graceful Shutdown, Signals, and Self-Healing Patterns:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson2.html"
+                ><span>02</span>Health Checks, Restart Policies, Dependency
+                Health, Graceful Shutdown, Signals, and Self-Healing Patterns:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson3.html"
+                ><span>03</span>Health Checks, Restart Policies, Dependency
+                Health, Graceful Shutdown, Signals, and Self-Healing Patterns:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson4.html"
+                ><span>04</span>Health Checks, Restart Policies, Dependency
+                Health, Graceful Shutdown, Signals, and Self-Healing Patterns:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter24/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Health Checks, Restart
+                Policies, Dependency Health, Graceful Shutdown, Signals, and
+                Self-Healing Patterns</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>25</span>Container Security Model: Namespaces, Capabilities,
+              Seccomp, AppArmor, SELinux, Devices, and Privilege Boundaries
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson1.html"
+                ><span>01</span>Container Security Model: Namespaces,
+                Capabilities, Seccomp, AppArmor, SELinux, Devices, and Privilege
+                Boundaries: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson2.html"
+                ><span>02</span>Container Security Model: Namespaces,
+                Capabilities, Seccomp, AppArmor, SELinux, Devices, and Privilege
+                Boundaries: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson3.html"
+                ><span>03</span>Container Security Model: Namespaces,
+                Capabilities, Seccomp, AppArmor, SELinux, Devices, and Privilege
+                Boundaries: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson4.html"
+                ><span>04</span>Container Security Model: Namespaces,
+                Capabilities, Seccomp, AppArmor, SELinux, Devices, and Privilege
+                Boundaries: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter25/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Container Security Model:
+                Namespaces, Capabilities, Seccomp, AppArmor, SELinux, Devices,
+                and Privilege Boundaries</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>26</span>Rootless Docker, RootlessKit, User Namespaces,
+              Networking, Storage, Limitations, and Threat Reduction
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson1.html"
+                ><span>01</span>Rootless Docker, RootlessKit, User Namespaces,
+                Networking, Storage, Limitations, and Threat Reduction:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson2.html"
+                ><span>02</span>Rootless Docker, RootlessKit, User Namespaces,
+                Networking, Storage, Limitations, and Threat Reduction: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson3.html"
+                ><span>03</span>Rootless Docker, RootlessKit, User Namespaces,
+                Networking, Storage, Limitations, and Threat Reduction:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson4.html"
+                ><span>04</span>Rootless Docker, RootlessKit, User Namespaces,
+                Networking, Storage, Limitations, and Threat Reduction:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter26/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Rootless Docker, RootlessKit,
+                User Namespaces, Networking, Storage, Limitations, and Threat
+                Reduction</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>27</span>User Namespace Remapping, UID/GID Mapping, Non-Root
+              Images, Filesystem Ownership, and Least Privilege
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson1.html"
+                ><span>01</span>User Namespace Remapping, UID/GID Mapping,
+                Non-Root Images, Filesystem Ownership, and Least Privilege:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson2.html"
+                ><span>02</span>User Namespace Remapping, UID/GID Mapping,
+                Non-Root Images, Filesystem Ownership, and Least Privilege:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson3.html"
+                ><span>03</span>User Namespace Remapping, UID/GID Mapping,
+                Non-Root Images, Filesystem Ownership, and Least Privilege:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson4.html"
+                ><span>04</span>User Namespace Remapping, UID/GID Mapping,
+                Non-Root Images, Filesystem Ownership, and Least Privilege:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter27/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — User Namespace Remapping,
+                UID/GID Mapping, Non-Root Images, Filesystem Ownership, and
+                Least Privilege</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>28</span>Secrets and Configuration Patterns, Runtime
+              Injection, Environment Risk, Build Secrets, and External Secret
+              Stores
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson1.html"
+                ><span>01</span>Secrets and Configuration Patterns, Runtime
+                Injection, Environment Risk, Build Secrets, and External Secret
+                Stores: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson2.html"
+                ><span>02</span>Secrets and Configuration Patterns, Runtime
+                Injection, Environment Risk, Build Secrets, and External Secret
+                Stores: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson3.html"
+                ><span>03</span>Secrets and Configuration Patterns, Runtime
+                Injection, Environment Risk, Build Secrets, and External Secret
+                Stores: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson4.html"
+                ><span>04</span>Secrets and Configuration Patterns, Runtime
+                Injection, Environment Risk, Build Secrets, and External Secret
+                Stores: Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter28/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Secrets and Configuration
+                Patterns, Runtime Injection, Environment Risk, Build Secrets,
+                and External Secret Stores</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>29</span>Image Vulnerability Scanning, Dependency Hygiene,
+              Base-Image Maintenance, and Remediation Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson1.html"
+                ><span>01</span>Image Vulnerability Scanning, Dependency
+                Hygiene, Base-Image Maintenance, and Remediation Workflows:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson2.html"
+                ><span>02</span>Image Vulnerability Scanning, Dependency
+                Hygiene, Base-Image Maintenance, and Remediation Workflows:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson3.html"
+                ><span>03</span>Image Vulnerability Scanning, Dependency
+                Hygiene, Base-Image Maintenance, and Remediation Workflows:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson4.html"
+                ><span>04</span>Image Vulnerability Scanning, Dependency
+                Hygiene, Base-Image Maintenance, and Remediation Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter29/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Image Vulnerability Scanning,
+                Dependency Hygiene, Base-Image Maintenance, and Remediation
+                Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>30</span>SBOMs, SPDX/CycloneDX, in-toto Attestations, SLSA
+              Provenance, Signatures, and Verification Workflows
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson1.html"
+                ><span>01</span>SBOMs, SPDX/CycloneDX, in-toto Attestations,
+                SLSA Provenance, Signatures, and Verification Workflows:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson2.html"
+                ><span>02</span>SBOMs, SPDX/CycloneDX, in-toto Attestations,
+                SLSA Provenance, Signatures, and Verification Workflows: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson3.html"
+                ><span>03</span>SBOMs, SPDX/CycloneDX, in-toto Attestations,
+                SLSA Provenance, Signatures, and Verification Workflows:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson4.html"
+                ><span>04</span>SBOMs, SPDX/CycloneDX, in-toto Attestations,
+                SLSA Provenance, Signatures, and Verification Workflows:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter30/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — SBOMs, SPDX/CycloneDX, in-toto
+                Attestations, SLSA Provenance, Signatures, and Verification
+                Workflows</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>31</span>Containerd Image Store, Snapshotters, Runtime
+              Internals, OCI Runtime Specs, and Docker Engine Evolution
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson1.html"
+                ><span>01</span>Containerd Image Store, Snapshotters, Runtime
+                Internals, OCI Runtime Specs, and Docker Engine Evolution:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson2.html"
+                ><span>02</span>Containerd Image Store, Snapshotters, Runtime
+                Internals, OCI Runtime Specs, and Docker Engine Evolution:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson3.html"
+                ><span>03</span>Containerd Image Store, Snapshotters, Runtime
+                Internals, OCI Runtime Specs, and Docker Engine Evolution:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson4.html"
+                ><span>04</span>Containerd Image Store, Snapshotters, Runtime
+                Internals, OCI Runtime Specs, and Docker Engine Evolution:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter31/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Containerd Image Store,
+                Snapshotters, Runtime Internals, OCI Runtime Specs, and Docker
+                Engine Evolution</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>32</span>Storage Drivers, overlay2, Copy-on-Write Behavior,
+              Disk Usage, Pruning, and Storage Troubleshooting
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson1.html"
+                ><span>01</span>Storage Drivers, overlay2, Copy-on-Write
+                Behavior, Disk Usage, Pruning, and Storage Troubleshooting:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson2.html"
+                ><span>02</span>Storage Drivers, overlay2, Copy-on-Write
+                Behavior, Disk Usage, Pruning, and Storage Troubleshooting:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson3.html"
+                ><span>03</span>Storage Drivers, overlay2, Copy-on-Write
+                Behavior, Disk Usage, Pruning, and Storage Troubleshooting:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson4.html"
+                ><span>04</span>Storage Drivers, overlay2, Copy-on-Write
+                Behavior, Disk Usage, Pruning, and Storage Troubleshooting:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter32/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Storage Drivers, overlay2,
+                Copy-on-Write Behavior, Disk Usage, Pruning, and Storage
+                Troubleshooting</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>33</span>Daemon Configuration, daemon.json, systemd,
+              Proxies, Registry Mirrors, Live Restore, and Host Integration
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson1.html"
+                ><span>01</span>Daemon Configuration, daemon.json, systemd,
+                Proxies, Registry Mirrors, Live Restore, and Host Integration:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson2.html"
+                ><span>02</span>Daemon Configuration, daemon.json, systemd,
+                Proxies, Registry Mirrors, Live Restore, and Host Integration:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson3.html"
+                ><span>03</span>Daemon Configuration, daemon.json, systemd,
+                Proxies, Registry Mirrors, Live Restore, and Host Integration:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson4.html"
+                ><span>04</span>Daemon Configuration, daemon.json, systemd,
+                Proxies, Registry Mirrors, Live Restore, and Host Integration:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter33/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Daemon Configuration,
+                daemon.json, systemd, Proxies, Registry Mirrors, Live Restore,
+                and Host Integration</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>34</span>Docker Engine API, SDKs, Remote Daemons, TLS
+              Authentication, Contexts, and Automation Clients
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson1.html"
+                ><span>01</span>Docker Engine API, SDKs, Remote Daemons, TLS
+                Authentication, Contexts, and Automation Clients: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson2.html"
+                ><span>02</span>Docker Engine API, SDKs, Remote Daemons, TLS
+                Authentication, Contexts, and Automation Clients: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson3.html"
+                ><span>03</span>Docker Engine API, SDKs, Remote Daemons, TLS
+                Authentication, Contexts, and Automation Clients: Configuration,
+                Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson4.html"
+                ><span>04</span>Docker Engine API, SDKs, Remote Daemons, TLS
+                Authentication, Contexts, and Automation Clients: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter34/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Engine API, SDKs, Remote
+                Daemons, TLS Authentication, Contexts, and Automation Clients</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>35</span>Docker Socket Security, Docker-in-Docker, Socket
+              Mounting, Build Services, and CI Isolation Tradeoffs
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson1.html"
+                ><span>01</span>Docker Socket Security, Docker-in-Docker, Socket
+                Mounting, Build Services, and CI Isolation Tradeoffs: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson2.html"
+                ><span>02</span>Docker Socket Security, Docker-in-Docker, Socket
+                Mounting, Build Services, and CI Isolation Tradeoffs: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson3.html"
+                ><span>03</span>Docker Socket Security, Docker-in-Docker, Socket
+                Mounting, Build Services, and CI Isolation Tradeoffs:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson4.html"
+                ><span>04</span>Docker Socket Security, Docker-in-Docker, Socket
+                Mounting, Build Services, and CI Isolation Tradeoffs:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter35/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Socket Security,
+                Docker-in-Docker, Socket Mounting, Build Services, and CI
+                Isolation Tradeoffs</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>36</span>Docker in CI/CD: Reproducible Builds, Buildx,
+              Registry Caching, Ephemeral Runners, and Release Promotion
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson1.html"
+                ><span>01</span>Docker in CI/CD: Reproducible Builds, Buildx,
+                Registry Caching, Ephemeral Runners, and Release Promotion:
+                Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson2.html"
+                ><span>02</span>Docker in CI/CD: Reproducible Builds, Buildx,
+                Registry Caching, Ephemeral Runners, and Release Promotion:
+                Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson3.html"
+                ><span>03</span>Docker in CI/CD: Reproducible Builds, Buildx,
+                Registry Caching, Ephemeral Runners, and Release Promotion:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson4.html"
+                ><span>04</span>Docker in CI/CD: Reproducible Builds, Buildx,
+                Registry Caching, Ephemeral Runners, and Release Promotion:
+                Diagnostics, Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter36/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker in CI/CD: Reproducible
+                Builds, Buildx, Registry Caching, Ephemeral Runners, and Release
+                Promotion</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>37</span>Developer Workflows, Dev Containers, Inner Loop
+              Optimization, Compose-Based Labs, and Local Parity
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson1.html"
+                ><span>01</span>Developer Workflows, Dev Containers, Inner Loop
+                Optimization, Compose-Based Labs, and Local Parity: Concepts,
+                Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson2.html"
+                ><span>02</span>Developer Workflows, Dev Containers, Inner Loop
+                Optimization, Compose-Based Labs, and Local Parity: Guided
+                Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson3.html"
+                ><span>03</span>Developer Workflows, Dev Containers, Inner Loop
+                Optimization, Compose-Based Labs, and Local Parity:
+                Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson4.html"
+                ><span>04</span>Developer Workflows, Dev Containers, Inner Loop
+                Optimization, Compose-Based Labs, and Local Parity: Diagnostics,
+                Failure Modes, Security, and Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter37/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Developer Workflows, Dev
+                Containers, Inner Loop Optimization, Compose-Based Labs, and
+                Local Parity</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>38</span>Production Container Patterns, Immutable Delivery,
+              Configuration, Statelessness, Sidecars, and Operational Contracts
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson current"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson1.html"
+                ><span>01</span>Production Container Patterns, Immutable
+                Delivery, Configuration, Statelessness, Sidecars, and
+                Operational Contracts: Concepts, Architecture, and Mental
+                Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson2.html"
+                ><span>02</span>Production Container Patterns, Immutable
+                Delivery, Configuration, Statelessness, Sidecars, and
+                Operational Contracts: Guided Hands-On Workflow and Core
+                Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson3.html"
+                ><span>03</span>Production Container Patterns, Immutable
+                Delivery, Configuration, Statelessness, Sidecars, and
+                Operational Contracts: Configuration, Design Choices, and
+                Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson4.html"
+                ><span>04</span>Production Container Patterns, Immutable
+                Delivery, Configuration, Statelessness, Sidecars, and
+                Operational Contracts: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter38/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Production Container Patterns,
+                Immutable Delivery, Configuration, Statelessness, Sidecars, and
+                Operational Contracts</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>39</span>Docker Swarm Fundamentals, Services, Stacks,
+              Secrets, Overlay Networks, Rolling Updates, and Legacy Estate
+              Support
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson1.html"
+                ><span>01</span>Docker Swarm Fundamentals, Services, Stacks,
+                Secrets, Overlay Networks, Rolling Updates, and Legacy Estate
+                Support: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson2.html"
+                ><span>02</span>Docker Swarm Fundamentals, Services, Stacks,
+                Secrets, Overlay Networks, Rolling Updates, and Legacy Estate
+                Support: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson3.html"
+                ><span>03</span>Docker Swarm Fundamentals, Services, Stacks,
+                Secrets, Overlay Networks, Rolling Updates, and Legacy Estate
+                Support: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson4.html"
+                ><span>04</span>Docker Swarm Fundamentals, Services, Stacks,
+                Secrets, Overlay Networks, Rolling Updates, and Legacy Estate
+                Support: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter39/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Swarm Fundamentals,
+                Services, Stacks, Secrets, Overlay Networks, Rolling Updates,
+                and Legacy Estate Support</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter" open="">
+            <summary>
+              <span>40</span>Docker Performance Engineering: Build Speed, Image
+              Size, Runtime Overhead, Network, Storage, and Resource Profiling
+            </summary>
+            <div>
+              <a
+                aria-current="page"
+                class="sidebar-lesson is-current"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson1.html"
+                ><span>01</span>Docker Performance Engineering: Build Speed,
+                Image Size, Runtime Overhead, Network, Storage, and Resource
+                Profiling: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson2.html"
+                ><span>02</span>Docker Performance Engineering: Build Speed,
+                Image Size, Runtime Overhead, Network, Storage, and Resource
+                Profiling: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson3.html"
+                ><span>03</span>Docker Performance Engineering: Build Speed,
+                Image Size, Runtime Overhead, Network, Storage, and Resource
+                Profiling: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson4.html"
+                ><span>04</span>Docker Performance Engineering: Build Speed,
+                Image Size, Runtime Overhead, Network, Storage, and Resource
+                Profiling: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter40/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Docker Performance Engineering:
+                Build Speed, Image Size, Runtime Overhead, Network, Storage, and
+                Resource Profiling</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>41</span>Troubleshooting Docker: Daemon Failures,
+              Networking, DNS, Storage, Permissions, Builds, and Container
+              Incidents
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson1.html"
+                ><span>01</span>Troubleshooting Docker: Daemon Failures,
+                Networking, DNS, Storage, Permissions, Builds, and Container
+                Incidents: Concepts, Architecture, and Mental Model</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson2.html"
+                ><span>02</span>Troubleshooting Docker: Daemon Failures,
+                Networking, DNS, Storage, Permissions, Builds, and Container
+                Incidents: Guided Hands-On Workflow and Core Operations</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson3.html"
+                ><span>03</span>Troubleshooting Docker: Daemon Failures,
+                Networking, DNS, Storage, Permissions, Builds, and Container
+                Incidents: Configuration, Design Choices, and Tradeoffs</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson4.html"
+                ><span>04</span>Troubleshooting Docker: Daemon Failures,
+                Networking, DNS, Storage, Permissions, Builds, and Container
+                Incidents: Diagnostics, Failure Modes, Security, and
+                Performance</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter41/Lesson5.html"
+                ><span>05</span>Checkpoint Lab — Troubleshooting Docker: Daemon
+                Failures, Networking, DNS, Storage, Permissions, Builds, and
+                Container Incidents</a
+              >
+            </div>
+          </details>
+          <details class="sidebar-chapter">
+            <summary>
+              <span>42</span>Production Capstone: Build, Secure, Publish,
+              Operate, Observe, and Recover a Complete Dockerized Application
+            </summary>
+            <div>
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter42/Lesson1.html"
+                ><span>01</span>Production Capstone: Build, Secure, Publish,
+                Operate, Observe, and Recover a Complete Dockerized Application:
+                Requirements, Constraints, and Target Architecture</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter42/Lesson2.html"
+                ><span>02</span>Production Capstone: Build, Secure, Publish,
+                Operate, Observe, and Recover a Complete Dockerized Application:
+                Implementation and Automation Build-Out</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter42/Lesson3.html"
+                ><span>03</span>Production Capstone: Build, Secure, Publish,
+                Operate, Observe, and Recover a Complete Dockerized Application:
+                Security, Governance, and Reliability Validation</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter42/Lesson4.html"
+                ><span>04</span>Production Capstone: Build, Secure, Publish,
+                Operate, Observe, and Recover a Complete Dockerized Application:
+                Failure Injection, Troubleshooting, and Recovery Drill</a
+              >
+              <a
+                class="sidebar-lesson"
+                data-sidebar-item=""
+                href="../Chapter42/Lesson5.html"
+                ><span>05</span>Production Capstone: Build, Secure, Publish,
+                Operate, Observe, and Recover a Complete Dockerized Application:
+                Final Operational Review and Handoff</a
+              >
+            </div>
+          </details>
+        </nav>
+      </aside>
+      <article class="lesson-article">
+        <nav aria-label="Breadcrumb" class="breadcrumbs">
+          <a href="../../../index.html">Academy</a><span>/</span
+          ><a href="../index.html">Docker</a><span>/</span
+          ><span>Chapter 40</span>
+        </nav>
+        <header class="lesson-header">
+          <div class="lesson-meta">
+            <span>Chapter 40</span><span>Lesson 01</span
+            ><span>~190 minutes</span>
+          </div>
+          <h1>
+            Docker Performance Engineering: Build Speed, Image Size, Runtime
+            Overhead, Network, Storage, and Resource Profiling: Concepts,
+            Architecture, and Mental Model
+          </h1>
+          <p>
+            Build a measurement-first Docker performance model across build
+            context/cache, image transfer/unpack, startup, CPU/memory, storage,
+            networking, and host saturation.
+          </p>
+          <div class="lesson-tags">
+            <span>Performance model</span><span>Build cache</span
+            ><span>Image size</span><span>Runtime metrics</span
+            ><span>Benchmarking</span>
+          </div>
+        </header>
+        <section class="lesson-objectives">
+          <h2>Learning objectives</h2>
+          <ul>
+            <li>
+              Model Docker performance as a chain from source/context through
+              build/cache, image transfer/unpack, startup, runtime resources,
+              storage/network paths, and host capacity.
+            </li>
+            <li>
+              Separate wall time, cache-hit evidence, compressed image size,
+              unpacked/rootfs behavior, startup latency, CPU/memory/PID usage,
+              block I/O, network I/O, and host saturation.
+            </li>
+            <li>
+              Design measurements that compare like with like instead of
+              treating one run as truth.
+            </li>
+            <li>
+              Explain why Docker Desktop, native Linux, remote builders,
+              emulation, and different storage/network backends are different
+              benchmark populations.
+            </li>
+            <li>
+              Inspect relevant state read-only before changing cache layout,
+              image construction, resource controls, storage, or networking.
+            </li>
+          </ul>
+        </section>
+        <section id="performance-engineering-starts-with-a-question-not-a-flag">
+          <h2>1. Performance engineering starts with a question, not a flag</h2>
+          <p>
+            “Docker is slow” is not a diagnosable statement. A build may be slow
+            because the context is large, a high-cost instruction keeps
+            invalidating, the remote cache is cold, the registry path is slow,
+            an emulated platform is compiling, or the host is already saturated.
+            A container may start slowly because image layers still need
+            transfer/unpack, because the application performs expensive
+            initialization, or because storage and DNS are delayed. Runtime
+            latency can come from CPU throttling, memory pressure, filesystem
+            copy-on-write, bind-mount overhead, network hops, external
+            dependencies, or the application itself.
+          </p>
+          <p>
+            The first discipline is therefore to name the metric, the workload,
+            the environment, and the state that owns the suspected bottleneck.
+            Only then should you change one variable.
+          </p>
+        </section>
+        <section id="mental-model-where-time-and-bytes-accumulate">
+          <h2>2. Mental model: where time and bytes accumulate</h2>
+          <div class="diagram-card">
+            <div class="diagram-label">Measurement chain</div>
+            <pre class="mermaid">
+flowchart TD
+  A[Source + build context] --> B[BuildKit graph + cache]
+  B --> C[Image layers / index / digest]
+  C --> D[Registry transfer + local content]
+  D --> E[Unpack / snapshot / writable layer]
+  E --> F[Container start + app initialization]
+  F --> G[CPU / memory / PIDs]
+  F --> H[Block I/O / volume / bind]
+  F --> I[Network / DNS / published path]
+  G --> J[Latency / throughput / cost]
+  H --> J
+  I --> J
+  K[Host or Desktop VM capacity] --> G
+  K --> H
+  K --> I
+  J --> L[One controlled change]
+  L --> M[Repeat same benchmark]
+            </pre>
+          </div>
+          <p>
+            Each arrow is a causal boundary. A smaller image can reduce transfer
+            bytes yet do nothing for a CPU-bound request. A faster build cache
+            can reduce developer feedback latency while leaving the runtime
+            image unchanged. A CPU limit can improve fairness but increase a
+            benchmark’s completion time. Performance evidence must therefore
+            remain attached to the layer it actually measures.
+          </p>
+        </section>
+        <section id="define-the-evidence-before-optimization">
+          <h2>3. Define the evidence before optimization</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Evidence</th>
+                  <th>What it answers</th>
+                  <th>Typical command or source</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Build wall time</td>
+                  <td>How long did this exact build take?</td>
+                  <td>shell timer + BuildKit progress log</td>
+                </tr>
+                <tr>
+                  <td>Cache hit/miss</td>
+                  <td>Which expensive vertices were reused?</td>
+                  <td>
+                    <code>--progress=plain</code>, <code>docker buildx du</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Context bytes</td>
+                  <td>How much source data reached the builder?</td>
+                  <td>BuildKit “load build context” progress</td>
+                </tr>
+                <tr>
+                  <td>Image size</td>
+                  <td>How large is the local image representation?</td>
+                  <td>
+                    <code>docker image inspect</code>,
+                    <code>docker history</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Registry/export bytes</td>
+                  <td>How much compressed content moved?</td>
+                  <td>registry/export metadata, layer descriptors</td>
+                </tr>
+                <tr>
+                  <td>Startup time</td>
+                  <td>How long from create/start to usable work?</td>
+                  <td>timer + inspect/log/health timestamps</td>
+                </tr>
+                <tr>
+                  <td>CPU/memory/PIDs</td>
+                  <td>Is runtime constrained or saturated?</td>
+                  <td><code>docker stats</code>, inspect, cgroup files</td>
+                </tr>
+                <tr>
+                  <td>Block/network I/O</td>
+                  <td>Is the path moving bytes slowly or heavily?</td>
+                  <td>stats plus workload-specific timing</td>
+                </tr>
+                <tr>
+                  <td>Host saturation</td>
+                  <td>Is the container merely competing for a busy host/VM?</td>
+                  <td>host/VM CPU, memory, disk, load, Desktop resources</td>
+                </tr>
+                <tr>
+                  <td>Variance</td>
+                  <td>Is the apparent win larger than run-to-run noise?</td>
+                  <td>repeated runs + median/range</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="cold-warm-and-incremental-are-different-questions">
+          <h2>4. Cold, warm, and incremental are different questions</h2>
+          <p>
+            A cold build asks what happens without reusable result cache. A warm
+            build asks how effectively an unchanged graph is reused. An
+            incremental build asks how much work is invalidated by a realistic
+            source change. Do not clear all caches before every comparison
+            unless cold-cache behavior is itself the question; that would
+            deliberately erase the behavior you need to evaluate.
+          </p>
+          <p>
+            Likewise, “startup” can mean container process start, application
+            readiness, or first successful external request. Record which
+            boundary you timed.
+          </p>
+        </section>
+        <section id="build-cache-reuse-is-graph-dependent">
+          <h2>5. Build cache: reuse is graph-dependent</h2>
+          <p>
+            BuildKit reuses a result when the instruction and its relevant
+            inputs match. Expensive, stable work belongs before frequently
+            changing inputs. A small <code>.dockerignore</code> does two things:
+            it reduces transfer work and prevents irrelevant files from
+            participating in cache invalidation. Cache mounts are different from
+            layer-result cache: they keep a mutable working cache, such as
+            package-manager downloads, available to later builds even if a step
+            must execute again.
+          </p>
+          <section class="callout">
+            <strong>Operator note.</strong> A cache hit is not automatically a
+            correctness signal. Cache scope must match trust and inputs. Never
+            use a broad shared cache as a substitute for declaring build inputs
+            precisely.
+          </section>
+        </section>
+        <section id="image-size-has-at-least-three-meanings">
+          <h2>6. Image size has at least three meanings</h2>
+          <p>
+            People often say “image size” as if it were one number. Registry
+            content is compressed; the local image store tracks content/layers;
+            unpacked snapshots consume filesystem space; running containers add
+            writable state. Build exporters can trade CPU time for smaller
+            compressed output using gzip, estargz, or zstd. A smaller transfer
+            can be valuable over a slow link, but aggressive compression can
+            make the build/export step slower. Measure the objective you
+            actually care about.
+          </p>
+        </section>
+        <section id="runtime-cpu-and-memory-limits-are-part-of-the-benchmark">
+          <h2>7. Runtime CPU and memory: limits are part of the benchmark</h2>
+          <p>
+            By default, containers can compete for host CPU and memory subject
+            to the host scheduler and daemon/platform limits. If one benchmark
+            uses <code>--cpus=0.5</code> and another is unlimited, you did not
+            benchmark the same resource envelope. Record
+            <code>HostConfig</code> limits and, on Linux/cgroup v2, the relevant
+            controller files such as <code>cpu.max</code>,
+            <code>cpu.stat</code>, <code>memory.current</code>, and
+            <code>memory.max</code> when available.
+          </p>
+          <p>
+            Also remember that <code>docker stats</code> is a convenient CLI
+            view, not a verbatim dump of every kernel counter. On Linux, for
+            example, the CLI subtracts file cache from displayed memory usage
+            while the API exposes raw usage and cache separately.
+          </p>
+        </section>
+        <section id="storage-writable-layer-volume-bind-and-snapshot-are-different-paths">
+          <h2>
+            8. Storage: writable layer, volume, bind, and snapshot are different
+            paths
+          </h2>
+          <p>
+            Container writable-layer I/O passes through the active
+            snapshot/storage implementation. Named volumes use Docker-managed
+            storage and are usually preferable for persistent application data.
+            Bind mounts couple I/O to a daemon-host path; on Docker Desktop that
+            path crosses the Linux VM file-sharing boundary, so cross-OS
+            source-tree workloads can behave differently from native Linux. The
+            result from one path cannot be generalized to all three.
+          </p>
+        </section>
+        <section id="networking-latency-belongs-to-a-path">
+          <h2>9. Networking: latency belongs to a path</h2>
+          <p>
+            Container-to-container traffic on a user-defined bridge, a published
+            host port, host networking, an overlay, a Desktop VM boundary, and a
+            remote service all have different hops. Before tuning a network
+            driver, draw the actual request path and separate DNS time,
+            connection establishment, application service time, and payload
+            throughput.
+          </p>
+        </section>
+        <section id="platform-population-native-linux-is-not-docker-desktop-is-not-emulation">
+          <h2>
+            10. Platform population: native Linux is not Docker Desktop is not
+            emulation
+          </h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Population</th>
+                  <th>What changes</th>
+                  <th>Interpretation rule</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Native Linux Engine</td>
+                  <td>Host kernel and filesystem are directly used</td>
+                  <td>
+                    Good evidence for that Linux host/kernel/storage stack
+                  </td>
+                </tr>
+                <tr>
+                  <td>Docker Desktop</td>
+                  <td>Linux containers run inside a managed VM</td>
+                  <td>Record Desktop VM resources and file-sharing path</td>
+                </tr>
+                <tr>
+                  <td>Remote builder/daemon</td>
+                  <td>Network RTT and remote disk/CPU enter the result</td>
+                  <td>Measure endpoint identity and transfer separately</td>
+                </tr>
+                <tr>
+                  <td>QEMU-emulated build</td>
+                  <td>
+                    Instruction execution can be much slower for compute-heavy
+                    steps
+                  </td>
+                  <td>Do not extrapolate to native target hardware</td>
+                </tr>
+                <tr>
+                  <td>Native multi-node builder</td>
+                  <td>Different CPU/storage/network on each node</td>
+                  <td>Treat node identity as benchmark input</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section id="read-only-preflight">
+          <h2>11. Read-only preflight</h2>
+          <pre><code class="language-dockercli">docker version
+docker info
+docker context show
+docker buildx version
+docker buildx ls
+docker buildx inspect --bootstrap
+docker system df -v
+docker stats --no-stream 2&gt;/dev/null || true</code></pre>
+          <p>
+            On Linux, also record the cgroup mode and filesystem
+            capacity/inodes. On Docker Desktop, record Desktop resource limits
+            and whether the workload uses a host bind mount or a Docker-managed
+            volume. No optimization should start before this environmental
+            identity is in the evidence packet.
+          </p>
+        </section>
+        <section id="benchmark-design-rules">
+          <h2>12. Benchmark design rules</h2>
+          <ul>
+            <li>fix the source revision and base-image digest;</li>
+            <li>name the metric and start/stop boundary;</li>
+            <li>record builder and platform identity;</li>
+            <li>
+              run more than once and report median/range rather than the fastest
+              run;
+            </li>
+            <li>change one variable at a time;</li>
+            <li>keep host background load reasonably stable;</li>
+            <li>preserve the “bad” run before changing configuration;</li>
+            <li>state what the measurement does <em>not</em> prove.</li>
+          </ul>
+        </section>
+        <section id="devops-connection-optimize-the-feedback-and-delivery-system">
+          <h2>
+            13. DevOps connection: optimize the feedback and delivery system
+          </h2>
+          <p>
+            Performance engineering is not only about raw runtime throughput.
+            Build feedback time affects developer iteration and CI cost. Image
+            transfer affects deployment and autoscaling latency. Resource
+            envelopes affect multi-tenant reliability. Storage and network
+            choices affect incident behavior. The useful DevOps outcome is an
+            evidence-backed tradeoff that can be reproduced, reviewed, and
+            rolled back.
+          </p>
+        </section>
+        <section id="knowledge-checks">
+          <h2>Knowledge check</h2>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why is a warm build not comparable to a deliberately cold
+                build?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                They answer different questions. A warm build measures cache
+                reuse; a cold build measures work without reusable result cache.
+                State the cache condition explicitly.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >A container shows 300% CPU. Is that necessarily an
+                error?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                No. Docker CPU percentage is relative to available CPU capacity
+                and can exceed 100% when multiple cores are used. Interpret it
+                with host CPU count, limits, and the workload.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >Why can a Docker Desktop bind-mount benchmark mislead a native
+                Linux production decision?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Desktop Linux containers run inside a VM and host files cross a
+                file-sharing boundary; native Linux uses a different filesystem
+                path and performance population.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >If an image is 20% smaller but export time doubles, which
+                result wins?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Neither universally. The objective decides:
+                registry/storage/transfer savings may justify extra build CPU,
+                or feedback latency may matter more. Measure the end-to-end
+                target.
+              </p>
+            </div>
+          </div>
+          <div class="quiz-card">
+            <p>
+              <strong
+                >What is the first thing to preserve when a workload is
+                unexpectedly slow?</strong
+              >
+            </p>
+            <button data-reveal-answer="" type="button">Reveal answer</button>
+            <div class="quiz-answer" hidden="">
+              <p>
+                Environment and first-run evidence: exact image/source, resource
+                limits, builder/context, logs/stats, storage/network path, host
+                saturation, and timestamps before changing anything.
+              </p>
+            </div>
+          </div>
+        </section>
+        <section>
+          <div class="next-concepts">
+            <span>Next lesson</span>
+            <h3>
+              <strong>Next:</strong> Docker Performance Engineering: Build Speed, Image Size, Runtime
+            Overhead, Network, Storage, and Resource Profiling: Guided Hands-On
+            Workflow and Core Operations
+            </h3>
+            <p>
+              Continue with the next lesson in the course sequence and carry
+              forward the evidence-first Docker operating model.
+            </p>
+          </div>
+        </section>
+
+        <section id="references">
+          <h2>Official references and version notes</h2>
+          <div class="callout info version-note-card">
+            <strong>Baseline checked:</strong>
+            <p class="muted">2026-09-22. Current upstream
+            baseline used for version-sensitive explanations: Docker Engine/CLI
+            29.8.1, Compose 5.5.1, Buildx 0.37.1, and BuildKit 0.33.0.
+            Executable labs record the learner’s actual Docker, Buildx,
+            BuildKit, kernel/cgroup, image digest, and host/VM environment
+            before interpreting any timing.</p>
+          </div>
+          <ul>
+            <li>
+              <a
+                href="https://docs.docker.com/build/cache/optimize/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Optimize cache usage in builds</a
+              >
+              — cache ordering, small contexts, bind/cache mounts, and external
+              cache.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/build/cache/backends/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Cache storage backends</a
+              >
+              — local/registry/inline/GHA cache boundaries and current driver
+              requirements.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/build/cache/backends/registry/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Registry cache</a
+              >
+              — cache mode and compression options.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/build/exporters/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Exporters overview</a
+              >
+              — output compression and size-versus-compute tradeoffs.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/build/exporters/image-registry/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Image and registry exporters</a
+              >
+              — gzip/estargz/zstd, compression levels, OCI media types, and
+              timestamp rewriting.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/reference/cli/docker/buildx/du/"
+                rel="noopener"
+                target="_blank"
+                >Docker CLI — docker buildx du</a
+              >
+              — builder cache disk-usage evidence.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/reference/cli/docker/container/stats/"
+                rel="noopener"
+                target="_blank"
+                >Docker CLI — docker stats</a
+              >
+              — CPU, memory, network, block I/O, PIDs, and Linux memory-cache
+              presentation semantics.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/containers/runmetrics/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Runtime metrics</a
+              >
+              — cgroup-level CPU, memory, and block-I/O evidence.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/containers/resource_constraints/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Resource constraints</a
+              >
+              — CPU/memory controls and measurement-before-limits guidance.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/storage/drivers/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Storage drivers</a
+              >
+              — writable-layer behavior and Engine 29 containerd image-store
+              note.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/storage/drivers/select-storage-driver/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Select a storage backend</a
+              >
+              — containerd snapshotters versus classic overlay2 context.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/storage/drivers/overlayfs-driver/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — OverlayFS/overlay2</a
+              >
+              — copy-on-write behavior, prerequisites, and performance
+              considerations.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/storage/volumes/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Volumes</a
+              >
+              — Docker-managed persistent storage and host-coupling boundary.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/storage/bind-mounts/"
+                rel="noopener"
+                target="_blank"
+                >Docker Docs — Bind mounts</a
+              >
+              — daemon-host path coupling and Desktop file-sharing implications.
+            </li>
+            <li>
+              <a
+                href="https://docs.docker.com/engine/release-notes/29/"
+                rel="noopener"
+                target="_blank"
+                >Docker Engine 29 release notes</a
+              >
+              — current Engine baseline.
+            </li>
+            <li>
+              <a
+                href="https://github.com/docker/buildx/releases"
+                rel="noopener"
+                target="_blank"
+                >Buildx releases</a
+              >
+              and
+              <a
+                href="https://github.com/moby/buildkit/releases"
+                rel="noopener"
+                target="_blank"
+                >BuildKit releases</a
+              >
+              — current builder versions.
+            </li>
+          </ul>
+        </section>
+        <nav aria-label="Lesson navigation" class="lesson-pagination">
+          <a href="../Chapter39/Lesson5.html"><span>Previous lesson</span></a
+          ><a href="../index.html"><span>Course curriculum</span></a
+          ><a href="Lesson2.html"><span>Next lesson</span></a>
+        </nav>
+        <section
+          aria-labelledby="support-title"
+          class="support-panel"
+          id="support"
+        >
+          <div aria-hidden="true" class="support-orbit"></div>
+          <div class="support-copy">
+            <p class="eyebrow">Keep the academy open</p>
+            <h2 id="support-title">
+              Support free, practical DevOps education.
+            </h2>
+            <p>
+              Every lesson is designed to remain readable in a browser,
+              downloadable from GitHub, and usable without a paid learning
+              platform. Contributions help expand and maintain the curriculum.
+            </p>
+            <div
+              aria-label="Abolfazl Mohammadijoo social links"
+              class="social-row"
+            >
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >GitHub</a
+              ><a
+                href="https://ir.linkedin.com/in/abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >LinkedIn</a
+              ><a
+                href="https://x.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >X</a
+              ><a
+                href="https://www.youtube.com/@abolfazlmohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >YouTube</a
+              ><a
+                href="https://mohammadijoo.ir/en/"
+                rel="noopener"
+                target="_blank"
+                >Website</a
+              >
+            </div>
+          </div>
+          <div class="wallet-card">
+            <div class="wallet-head">
+              <span class="network-dot"></span><span>Ethereum / ERC-20</span>
+            </div>
+            <code data-wallet-address=""
+              >0x716c4Ab160C4B66F31a28AE2448BfF68fc3a2ef0</code
+            ><button class="copy-wallet" data-copy-wallet="" type="button">
+              <svg aria-hidden="true" viewbox="0 0 24 24">
+                <rect height="11" rx="2" width="11" x="8" y="8"></rect>
+                <path
+                  d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"
+                ></path></svg
+              ><span>Copy address</span></button
+            ><small
+              >Send only Ethereum/ERC-20 compatible assets to this
+              address.</small
+            >
+          </div>
+        </section>
+        <footer class="site-footer">
+          <div>
+            <a class="footer-brand" href="../../../index.html"
+              ><span aria-hidden="true" class="brand-mark mini">&gt;_</span>
+              DevOps Academy</a
+            >
+            <p>
+              A browser-native learning path for modern software delivery and
+              operations.
+            </p>
+          </div>
+          <div class="footer-meta">
+            <span
+              >Created by
+              <a
+                href="https://github.com/mohammadijoo"
+                rel="noopener"
+                target="_blank"
+                >Abolfazl Mohammadijoo</a
+              ></span
+            ><span>© <span data-current-year="">2026</span></span>
+          </div>
+        </footer>
+      </article>
+      <aside aria-label="On this page" class="on-page-toc">
+        <p>On this page</p>
+        <nav data-on-page-toc=""></nav>
+        <div class="toc-progress">
+          <span>Lesson progress</span><strong data-progress-label="">0%</strong>
+        </div>
+      </aside>
+      <button class="course-drawer-button" data-sidebar-open="" type="button">
+        Course contents
+      </button>
+    </main>
+    <script defer="" src="../../../assets/js/main.js"></script>
+    <script defer="" src="../../../assets/js/course.js"></script>
+    <script defer="" src="../../../assets/js/mermaid_export.js"></script>
+    <script data-docker-toc-unnumbered="">
+      (() => {
+        const toc = document.querySelector("[data-on-page-toc]");
+        if (!toc) return;
+        const strip = (label) =>
+          label.replace(
+            /^\s*(?:section\s+)?\d+(?:\.\d+)*\s*(?:[.)]|[-–—:])\s*/i,
+            "",
+          );
+        const normalize = () =>
+          toc.querySelectorAll("a").forEach((link) => {
+            const cleaned = strip(link.textContent);
+            if (cleaned !== link.textContent) link.textContent = cleaned;
+          });
+        normalize();
+        new MutationObserver(normalize).observe(toc, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+      })();
+    </script>
+  </body>
+</html>
